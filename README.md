@@ -12,10 +12,20 @@ Covalent is a Pythonic workflow tool used to execute tasks on advanced computing
 
 ## Installation
 
-To use this plugin with Covalent, simply install it using `pip`:
+### Server Environment
+
+To use this plugin with Covalent, simply install it using `pip` in whatever Python environment you use to run the Covalent server:
 
 ```
 pip install git+...
+```
+
+### HPC Environment
+
+Additionally, on the remote machine(s) where you plan to execute Covalent workflows, ensure that your Python environment has both Covalent and PSI/J installed:
+
+```
+pip install covalent psij-python
 ```
 
 ## Usage

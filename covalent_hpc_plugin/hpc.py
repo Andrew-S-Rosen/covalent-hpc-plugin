@@ -288,6 +288,7 @@ class HPCExecutor(AsyncBaseExecutor):
 
         return f"""
 from pathlib import Path
+
 import cloudpickle as pickle
 
 with open(Path("{self._remote_func_filename}").expanduser().resolve(), "rb") as f:
