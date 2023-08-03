@@ -368,15 +368,25 @@ print(job.native_id)
         """
 
         return f"""
-from psij import Job, JobExecutor
+from datetime import timedelta
+from psij import Job, JobExecutor, JobState
 
 job_executor = JobExecutor.get_instance("{self.instance}")
 
 job = Job()
-
 job_executor.attach(job, "{self._jobid}")
-job.wait(target_states=[JobState.QUEUED])
-print(str(job.status.state))
+state = job.wait(
+    target_states=[
+        JobState.QUEUED,
+        JobState.CANCELED,
+        JobState.ACTIVE,
+        JobState.FAILED,
+        JobState.COMPLETED,
+    ],
+    timeout = timedelta(seconds=10),
+)
+state = state or JobState.NEW
+print(state.name)
 """
 
     async def _client_connect(self) -> asyncssh.SSHClientConnection:
