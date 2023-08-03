@@ -279,9 +279,6 @@ class HPCExecutor(AsyncBaseExecutor):
         # Make sure local cache dir exists
         os.makedirs(self.cache_dir, exist_ok=True)
 
-        # Initialize jobid as None
-        self._jobid = None
-
     def _format_py_script(self) -> str:
         """Create the Python script that executes the pickled python function.
 
@@ -290,9 +287,10 @@ class HPCExecutor(AsyncBaseExecutor):
         """
 
         return f"""
+from pathlib import Path
 import cloudpickle as pickle
 
-with open("{self._remote_func_filename}", "rb") as f:
+with open(Path("{self._remote_func_filename}").expanduser().resolve(), "rb") as f:
     function, args, kwargs = pickle.load(f)
 
 result = None
@@ -303,7 +301,7 @@ try:
 except Exception as e:
     exception = e
 
-with open("{self._remote_result_filename}", "wb") as f:
+with open(Path("{self._remote_result_filename}").expanduser().resolve(), "wb") as f:
     pickle.dump((result, exception), f)
 """
 
@@ -332,6 +330,7 @@ with open("{self._remote_result_filename}", "wb") as f:
 
         return f"""
 from pathlib import Path
+from shutil import which
 from psij import Job, JobAttributes, JobExecutor, JobSpec, ResourceSpecV1
 
 job_executor = JobExecutor.get_instance("{self.instance}")
@@ -339,12 +338,12 @@ job_executor = JobExecutor.get_instance("{self.instance}")
 job = Job(
     JobSpec(
         name="{self._name}",
-        executable="{self.python_executable}",
-        arguments=[str(Path("{self._remote_py_script_filename}"))],
-        directory=Path("{self._job_remote_workdir}"),
+        executable=which("{self.python_executable}"),
+        arguments=[str(Path("{self._remote_py_script_filename}").expanduser().resolve())],
+        directory=Path("{self._job_remote_workdir}").expanduser().resolve(),
         environment={self.environment},
-        stdout_path=Path("{self._remote_stdout_path}"),
-        stderr_path=Path("{self._remote_stderr_path}"),
+        stdout_path=Path("{self._remote_stdout_path}").expanduser().resolve(),
+        stderr_path=Path("{self._remote_stderr_path}").expanduser().resolve(),
         {resources_string}
         {attributes_string}
         {pre_launch_string}
@@ -362,7 +361,7 @@ print(job.native_id)
         Create the PSI/J script to query job status.
 
         Returns:
-            string representation of the Python script to make/execute the PSI/J Job object.
+            string representation of the Python script to query the job status with PSI/J.
         """
 
         return f"""
@@ -373,7 +372,7 @@ job_executor = JobExecutor.get_instance("{self.instance}")
 
 job = Job()
 job_executor.attach(job, "{self._jobid}")
-state = job.wait(
+job_status = job.wait(
     target_states=[
         JobState.QUEUED,
         JobState.CANCELED,
@@ -383,7 +382,7 @@ state = job.wait(
     ],
     timeout = timedelta(seconds=10),
 )
-state = state or JobState.NEW
+state = job_status.state or JobState.NEW
 print(state.name)
 """
 
@@ -449,13 +448,9 @@ print(state.name)
         results_dir = task_metadata["results_dir"]
         self._task_results_dir = Path(results_dir) / dispatch_id
         self._job_remote_workdir = (
-            (
-                Path(self.remote_workdir) / dispatch_id / f"node_{node_id}"
-                if self.create_unique_workdir
-                else Path(self.remote_workdir)
-            )
-            .expanduser()
-            .resolve()
+            Path(self.remote_workdir) / dispatch_id / f"node_{node_id}"
+            if self.create_unique_workdir
+            else Path(self.remote_workdir)
         )
 
         result_filename = f"result-{dispatch_id}-{node_id}.pkl"
@@ -488,7 +483,7 @@ print(state.name)
         proc_mkdir_remote = await conn.run(cmd_mkdir_remote)
 
         if client_err := proc_mkdir_remote.stderr.strip():
-            raise RuntimeError(client_err)
+            raise RuntimeError(f"Making remote directory failed: {client_err}")
 
         async with aiofiles.tempfile.NamedTemporaryFile(dir=self.cache_dir) as temp:
             # Pickle the function, write to file, and copy to remote filesystem
@@ -530,7 +525,7 @@ print(state.name)
         proc = await conn.run(f"{self.python_executable} {self._remote_job_script_filename}")
 
         if proc.returncode != 0:
-            raise RuntimeError(proc.stderr.strip())
+            raise RuntimeError(f"Job submission failed: {proc.stderr.strip()}")
 
         app_log.debug(f"Job submitted with stdout: {self._remote_stdout_path}")
 
@@ -558,7 +553,7 @@ print(state.name)
         print(stderr, file=sys.stderr)
 
         if exception:
-            raise RuntimeError(exception)
+            raise RuntimeError(f"Querying job status failed: {exception}")
 
         app_log.debug("Preparing for teardown...")
 
@@ -585,7 +580,7 @@ print(state.name)
         proc = await conn.run(f"{self.python_executable} {self._remote_query_status_filename}")
 
         if proc.returncode != 0:
-            raise RuntimeError(proc.stderr.strip())
+            raise RuntimeError(f"Getting job status failed: {proc.stderr.strip()}")
 
         return proc.stdout.strip()
 
@@ -607,9 +602,9 @@ print(state.name)
             status = await self.get_status(conn)
 
         if status == "FAILED":
-            raise RuntimeError(f"Job failed.")
+            raise RuntimeError(f"Job with native ID {self._jobid} failed.")
         elif status == "CANCELED":
-            raise RuntimeError(f"Job cancelled.")
+            raise RuntimeError(f"Job with native ID {self._jobid} cancelled.")
 
     async def _query_result(
         self,
