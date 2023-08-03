@@ -25,8 +25,9 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
+from datetime import timedelta
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypedDict
 
 import aiofiles
 import asyncssh
@@ -37,11 +38,6 @@ from covalent._results_manager.result import Result
 from covalent._shared_files import logger
 from covalent._shared_files.config import get_config
 from covalent.executor.base import AsyncBaseExecutor
-
-# TODO:
-# - Raise an error if PSI/J not found on remote machine
-# - Activate conda env on remote machine
-# - Reintroduce checks from slurm-covalent-plugin
 
 app_log = logger.app_log
 log_stack_info = logger.log_stack_info
@@ -54,13 +50,14 @@ _EXECUTOR_PLUGIN_DEFAULTS = {
     "cert_file": None,
     # PSI/J parameters
     "instance": "slurm",
-    "remote_python_executable": "python",
-    "remote_conda_env": None,
     "inherit_environment": True,
     "environment": None,
     "resource_spec": None,
     "job_attributes": None,
     "launcher": "single",
+    # Remote Python env parameters
+    "remote_python_executable": "python",
+    "remote_conda_env": None,
     # Covalent parameters
     "remote_workdir": "~/covalent-workdir",
     "create_unique_workdir": False,
@@ -72,29 +69,73 @@ _DEFAULT = object()
 executor_plugin_name = "HPCExecutor"
 
 
+class ResourceSpecV1Hint(TypedDict):
+    """
+    Type hint for PSI/J `ResourceSpecV1` object.
+
+    Source: https://exaworks.org/job-api-spec/specification.html#resourcespecv1
+    """
+
+    node_count: int
+    exclusive_node_use: bool
+    process_count: int
+    processes_per_node: int
+    cpu_cores_per_process: int
+    gpu_cores_per_process: int
+
+
+class JobAttributesHint(TypedDict):
+    """
+    Type hint for PSI/J `JobAttributes` object.
+
+    Source: https://exaworks.org/psij-python/docs/v/0.9.0/_modules/psij/job_attributes.html#JobAttributes
+    """
+
+    duration: timedelta
+    queue_name: str | None
+    project_name: str | None
+    reservation_id: str | None
+    custom_attributes: dict[str, object] | None
+
+
 class HPCExecutor(AsyncBaseExecutor):
     """
-    HPC executor plugin class, built around PSI/J. PSI/J must be present in the remote machine's Python environment.
+    HPC executor plugin class, built around PSI/J.
+
+    This plugin requires that Covalent and PSI/J exist in the remote machine's Python environment.
 
     Args:
-        address: Remote address or hostname of the login node.
-        username: Username used to authenticate over SSH.
-        ssh_key_file: Private RSA key used to authenticate over SSH (usually at ~/.ssh/id_rsa).
+        address: Remote address or hostname of the login node (e.g. "coolmachine.university.edu").
+        username: Username used to authenticate over SSH (i.e. what you use to login to `address`).
+            The default is None (i.e. no username is required).
+        ssh_key_file: Private RSA key used to authenticate over SSH.
+            The default is "~/.ssh/id_rsa". If no key is required, set this as None.
         cert_file: Certificate file used to authenticate over SSH, if required (usually has extension .pub).
-        instance: PSI/J instance to use for job submission.
-        remote_python_executable: Python executable to use for job submission.
-        remote_conda_env: Conda environment to activate on the remote machine.
-        environment: Environment variables to set for the job.
-        resource_spec: ResourceSpec for the job.
-        job_attributes: JobAttributes for the job.
-        launcher: Launcher to use for the job.
-        remote_workdir: Working directory on the remote cluster.
+            The default is None. If no certificate is required, leave this as None.
+        instance: The PSI/J `JobExecutor` instance (i.e. job scheduler) to use for job submission.
+            Must be one of: "cobalt", "flux", "local", "lsf", "pbspro", "rp", "slurm". Defaults to "slurm".
+        launcher: The PSI/J `JobSpec` launcher to use for the job.
+            Must be one of: "aprun", "jsrun", "mpirun", "multiple", "single", "srun". Defaults to "single".
+        resource_spec: The PSI/J keyword arguments for `ResourceSpecV1`, which describes the resources to
+            reserve on the scheduling system. Defaults to None, which is equivalent to {}.
+        job_attributes: The PSI/J keyword arguments for `JobAttributes`, which describes information about how the
+            job is queued and run. Defaults to None, which is equivalent to {}.
+        inherit_environment: Whether the job should inherit the parent environment. Defaults to True.
+        environment: Environment variables to set for the job. Defaults to None, which is equivalent to {}.
+        remote_python_executable: Python executable to use for job submission. Defaults to "python".
+        remote_conda_env: Conda environment to activate on the remote machine. Defaults to None.
+        remote_workdir: Working directory on the remote cluster. Defaults to "~/covalent-workdir".
         create_unique_workdir: Whether to create a unique working (sub)directory for each task.
+            Defaults to False.
         cache_dir: Local cache directory used by this executor for temporary files.
-        poll_freq: Frequency with which to poll a submitted job. Always is >= 60.
-        cleanup: Whether to perform cleanup or not on remote machine.
-        time_limit: time limit for the task
-        retries: Number of times to retry execution upon failure
+            Defaults to the dispatcher's cache directory.
+        poll_freq: Frequency with which to poll a submitted job. Defaults to 60. Note that settings this value
+            to be significantly smaller is not advised, as it will cause too frequent SSHs into the remote machine.
+        log_stdout: Path to file to log stdout to. Defaults to "" (i.e. no logging).
+        log_stderr: Path to file to log stderr to. Defaults to "" (i.e. no logging).
+        time_limit: time limit for the task (in seconds). Defaults to -1 (i.e. no time limit). Note that this is
+            not the same as the job scheduler's time limit, which is set in `job_attributes`.
+        retries: Number of times to retry execution upon failure. Defaults to 0 (i.e. no retries).
     """
 
     def __init__(
@@ -102,21 +143,22 @@ class HPCExecutor(AsyncBaseExecutor):
         # SSH credentials
         address: str = _DEFAULT,
         username: str | None = _DEFAULT,
-        ssh_key_file: str | None = _DEFAULT,
-        cert_file: str | None = _DEFAULT,
+        ssh_key_file: str | Path | None = _DEFAULT,
+        cert_file: str | Path | None = _DEFAULT,
         # PSI/J parameters
         instance: Literal["cobalt", "flux", "local", "lsf", "pbspro", "rp", "slurm"] = _DEFAULT,
+        launcher: Literal["aprun", "jsrun", "mpirun", "multiple", "single", "srun"] = _DEFAULT,
+        resource_spec: ResourceSpecV1Hint = _DEFAULT,
+        job_attributes: JobAttributesHint = _DEFAULT,
+        inherit_environment: bool = _DEFAULT,
+        environment: dict[str, str] | None = _DEFAULT,
+        # Remote Python env parameters
         remote_python_executable: str = _DEFAULT,
         remote_conda_env: str | None = _DEFAULT,
-        inherit_environment: bool = _DEFAULT,
-        environment: dict | None = _DEFAULT,
-        resource_spec: dict | None = _DEFAULT,
-        job_attributes: dict | None = _DEFAULT,
-        launcher: Literal["aprun", "jsrun", "mpirun", "multiple", "single", "srun"] = _DEFAULT,
         # Covalent parameters
-        remote_workdir: str = _DEFAULT,
+        remote_workdir: str | Path = _DEFAULT,
         create_unique_workdir: bool = _DEFAULT,
-        cache_dir: str = _DEFAULT,
+        cache_dir: str | Path = _DEFAULT,
         poll_freq: int = _DEFAULT,
         # AsyncBaseExecutor parameters
         log_stdout: str = "",
@@ -164,9 +206,6 @@ class HPCExecutor(AsyncBaseExecutor):
             else _EXECUTOR_PLUGIN_DEFAULTS["cert_file"]
         )
 
-        if self.cert_file and not self.ssh_key_file:
-            raise ValueError("ssh_key_file must be set if cert_file is set.")
-
         # PSI/J parameters
         self.instance = (
             instance
@@ -176,36 +215,12 @@ class HPCExecutor(AsyncBaseExecutor):
             else _EXECUTOR_PLUGIN_DEFAULTS["instance"]
         )
 
-        self.remote_python_executable = (
-            remote_python_executable
-            if remote_python_executable != _DEFAULT
-            else hpc_config["remote_python_executable"]
-            if "remote_python_executable" in hpc_config
-            else _EXECUTOR_PLUGIN_DEFAULTS["remote_python_executable"]
-        )
-
-        self.remote_conda_env = (
-            remote_conda_env
-            if remote_conda_env != _DEFAULT
-            else hpc_config["remote_conda_env"]
-            if "remote_conda_env" in hpc_config
-            else _EXECUTOR_PLUGIN_DEFAULTS["remote_conda_env"]
-        )
-
-        self.inherit_environment = (
-            inherit_environment
-            if inherit_environment != _DEFAULT
-            else hpc_config["inherit_environment"]
-            if "inherit_environment" in hpc_config
-            else _EXECUTOR_PLUGIN_DEFAULTS["inherit_environment"]
-        )
-
-        self.environment = (
-            environment
-            if environment != _DEFAULT
-            else hpc_config["environment"]
-            if "environment" in hpc_config
-            else _EXECUTOR_PLUGIN_DEFAULTS["environment"]
+        self.launcher = (
+            launcher
+            if launcher != _DEFAULT
+            else hpc_config["launcher"]
+            if "launcher" in hpc_config
+            else _EXECUTOR_PLUGIN_DEFAULTS["launcher"]
         )
 
         self.resource_spec = (
@@ -224,12 +239,37 @@ class HPCExecutor(AsyncBaseExecutor):
             else _EXECUTOR_PLUGIN_DEFAULTS["job_attributes"]
         )
 
-        self.launcher = (
-            launcher
-            if launcher != _DEFAULT
-            else hpc_config["launcher"]
-            if "launcher" in hpc_config
-            else _EXECUTOR_PLUGIN_DEFAULTS["launcher"]
+        self.inherit_environment = (
+            inherit_environment
+            if inherit_environment != _DEFAULT
+            else hpc_config["inherit_environment"]
+            if "inherit_environment" in hpc_config
+            else _EXECUTOR_PLUGIN_DEFAULTS["inherit_environment"]
+        )
+
+        self.environment = (
+            environment
+            if environment != _DEFAULT
+            else hpc_config["environment"]
+            if "environment" in hpc_config
+            else _EXECUTOR_PLUGIN_DEFAULTS["environment"]
+        )
+
+        # Remote Python environment parameters
+        self.remote_python_executable = (
+            remote_python_executable
+            if remote_python_executable != _DEFAULT
+            else hpc_config["remote_python_executable"]
+            if "remote_python_executable" in hpc_config
+            else _EXECUTOR_PLUGIN_DEFAULTS["remote_python_executable"]
+        )
+
+        self.remote_conda_env = (
+            remote_conda_env
+            if remote_conda_env != _DEFAULT
+            else hpc_config["remote_conda_env"]
+            if "remote_conda_env" in hpc_config
+            else _EXECUTOR_PLUGIN_DEFAULTS["remote_conda_env"]
         )
 
         # Covalent parameters
@@ -269,10 +309,11 @@ class HPCExecutor(AsyncBaseExecutor):
         os.makedirs(self.cache_dir, exist_ok=True)
 
     def _format_py_script(self) -> str:
-        """Create the Python script that executes the pickled python function.
+        """
+        Create the Python script that executes the pickled python function.
 
         Returns:
-            script: String object containing a script.
+            script: String object containing a Python script.
         """
 
         return f"""
@@ -296,10 +337,11 @@ with open(Path("{self._remote_result_filepath}").expanduser().resolve(), "wb") a
 """
 
     def _format_job_script(self) -> str:
-        """Create the PSI/J Job that defines the job specs.
+        """
+        Create the PSI/J Python script that will submit the compute job to the scheduler.
 
         Returns:
-            string representation of the Python script to make/execute the PSI/J Job object.
+            String representation of the Python script to make/execute the PSI/J Job object.
         """
         resources_string = (
             f"resources=ResourceSpecV1(**{self.resource_spec})," if self.resource_spec else ""
@@ -341,11 +383,17 @@ print(job.native_id)
 
     def _format_query_status_script(self) -> str:
         """
-        Create the PSI/J script to query job status.
+        Create the PSI/J Python script to query the submitted job status.
 
         Returns:
-            string representation of the Python script to query the job status with PSI/J.
+            String representation of the Python script to query the job status with PSI/J.
         """
+
+        # NOTE: Once https://github.com/ExaWorks/psij-python/issues/400 is resolved,
+        # we can change it to just `target_states=[JobState.QUEUED]`.
+
+        # NOTE: Once https://github.com/ExaWorks/psij-python/issues/401 is resolved,
+        # we can remove the `timeout` argument and set `state = job_status.state`.
 
         return f"""
 from datetime import timedelta
@@ -371,10 +419,7 @@ print(state.name)
 
     async def _client_connect(self) -> asyncssh.SSHClientConnection:
         """
-        Helper function for connecting to the remote host through asyncssh module.
-
-        Args:
-            None
+        Helper function for connecting to the remote host through the asyncssh module.
 
         Returns:
             The connection object
@@ -383,7 +428,11 @@ print(state.name)
         if not self.address:
             raise ValueError("address is a required parameter.")
 
+        # Read in the private key and certificate files
         if self.cert_file:
+            if not self.ssh_key_file:
+                raise ValueError("ssh_key_file must be set if cert_file is set.")
+
             self.cert_file = Path(self.cert_file).expanduser().resolve()
             client_keys = (
                 asyncssh.read_private_key(self.ssh_key_file),
@@ -393,6 +442,7 @@ print(state.name)
             self.ssh_key_file = Path(self.ssh_key_file).expanduser().resolve()
             client_keys = asyncssh.read_private_key(self.ssh_key_file)
 
+        # Connect to the remote host
         try:
             conn = await asyncssh.connect(
                 self.address,
@@ -411,7 +461,8 @@ print(state.name)
     async def run(
         self, function: callable, args: list, kwargs: dict, task_metadata: dict
     ) -> Result:
-        """Run a function on the remote machine.
+        """
+        Run a function on the remote machine.
 
         Args:
             function: Function to be executed.
@@ -461,62 +512,63 @@ print(state.name)
         # Establish connection
         conn = await self._client_connect()
 
+        # Check if the remote Python version is compatible with the local Python version
         py_version_func = ".".join(function.args[0].python_version.split(".")[:2])
-        app_log.debug(f"Python version: {py_version_func}")
+        app_log.debug(f"Remote Python version: {py_version_func}")
 
         # Create the remote directory
-        app_log.debug(f"Creating remote work directory {self._job_remote_workdir} ...")
+        app_log.debug(f"Creating remote work directory: {self._job_remote_workdir}")
         cmd_mkdir_remote = f"mkdir -p {self._job_remote_workdir}"
         proc_mkdir_remote = await conn.run(cmd_mkdir_remote)
 
         if client_err := proc_mkdir_remote.stderr.strip():
             raise RuntimeError(f"Making remote directory failed: {client_err}")
 
+        # Pickle the function, write to file, and copy to remote filesystem
         async with aiofiles.tempfile.NamedTemporaryFile(dir=self.cache_dir) as temp:
-            # Pickle the function, write to file, and copy to remote filesystem
-            app_log.debug("Writing pickled function, args, kwargs to file...")
+            app_log.debug("Writing pickled function, args, kwargs to file")
             await temp.write(pickle.dumps((function, args, kwargs)))
             await temp.flush()
 
             app_log.debug(
-                f"Copying pickled function to remote fs: {self._remote_func_filepath} ..."
+                f"Copying pickled function to remote filesystem: {self._remote_func_filepath}"
             )
             await asyncssh.scp(temp.name, (conn, self._remote_func_filepath))
 
+        # Format the function execution script, write to file, and copy to remote filesystem
         async with aiofiles.tempfile.NamedTemporaryFile(dir=self.cache_dir, mode="w") as temp:
-            # Format the function execution script, write to file, and copy to remote filesystem
             python_exec_script = self._format_py_script()
-            app_log.debug("Writing python run-function script to tempfile...")
+            app_log.debug("Writing python run-function script to tempfile")
             await temp.write(python_exec_script)
             await temp.flush()
 
             app_log.debug(
-                f"Copying python run-function to remote fs: {self._remote_py_script_filepath}"
+                f"Copying python run-function to remote filesystem: {self._remote_py_script_filepath}"
             )
             await asyncssh.scp(temp.name, (conn, self._remote_py_script_filepath))
 
+        # Format the PSI/J Python submit script, write to file, and copy to remote filesystem
         async with aiofiles.tempfile.NamedTemporaryFile(dir=self.cache_dir, mode="w") as temp:
-            # Format the submit script, write to file, and copy to remote filesystem
             submit_script = self._format_job_script()
-            app_log.debug("Writing submit script to tempfile...")
+            app_log.debug("Writing PSI/J submit script to tempfile")
             await temp.write(submit_script)
             await temp.flush()
 
             app_log.debug(
-                f"Copying submit script to remote fs: {self._remote_jobscript_filepath} ..."
+                f"Copying PSI/J submit script to remote filesystem: {self._remote_jobscript_filepath} ..."
             )
             await asyncssh.scp(temp.name, (conn, self._remote_jobscript_filepath))
 
+        # Make the pre launch file (to activate the Conda environment)
         if self.remote_conda_env:
             async with aiofiles.tempfile.NamedTemporaryFile(dir=self.cache_dir, mode="w") as temp:
-                # Make the pre launch file
                 pre_launch_script = f"source activate {self.remote_conda_env}"
-                app_log.debug("Writing pre launch file...")
+                app_log.debug("Writing pre launch file")
                 await temp.write(pre_launch_script)
                 await temp.flush()
 
                 app_log.debug(
-                    f"Copying pre launch script to remote fs: {self._remote_pre_launch_filepath} ..."
+                    f"Copying pre launch script to remote filesystem: {self._remote_pre_launch_filepath}"
                 )
                 await asyncssh.scp(temp.name, (conn, self._remote_pre_launch_filepath))
 
@@ -526,33 +578,32 @@ print(state.name)
                 if client_err := proc_chmod.stderr.strip():
                     raise RuntimeError(f"Changing permissions failed with file: {proc_chmod}")
 
-        # Execute the job submission script
-        app_log.debug(f"Submitting the job...")
+        # Execute the job submission Python script
+        app_log.debug(f"Submitting the job")
         proc = await conn.run(f"{self.remote_python_executable} {self._remote_jobscript_filepath}")
 
         if proc.returncode != 0:
             raise RuntimeError(f"Job submission failed: {proc.stderr.strip()}")
 
         app_log.debug(f"Job submitted with stdout: {self._remote_stdout_filepath}")
-
         self._jobid = proc.stdout.strip()
 
+        # Format the Python script to query the job status, write to file, and copy to remote filesystem
         async with aiofiles.tempfile.NamedTemporaryFile(dir=self.cache_dir, mode="w") as temp:
-            # Format the function execution script, write to file, and copy to remote filesystem
             python_query_status_script = self._format_query_status_script()
-            app_log.debug("Writing python query status script to tempfile...")
+            app_log.debug("Writing PSI/J query status script to tempfile")
             await temp.write(python_query_status_script)
             await temp.flush()
 
             app_log.debug(
-                f"Copying python query-function to remote fs: {self._remote_query_status_filepath}"
+                f"Copying PSI/J query status script to remote filesystem: {self._remote_query_status_filepath}"
             )
             await asyncssh.scp(temp.name, (conn, self._remote_query_status_filepath))
 
-        app_log.debug(f"Polling job scheduler with job_id: {self._jobid} ...")
+        app_log.debug(f"Polling job scheduler with job_id: {self._jobid}")
         await self._poll_scheduler(conn)
 
-        app_log.debug(f"Querying result with job_id: {self._jobid} ...")
+        app_log.debug(f"Querying result with job_id: {self._jobid}")
         result, stdout, stderr, exception = await self._query_result(conn)
 
         print(stdout)
@@ -561,9 +612,9 @@ print(state.name)
         if exception:
             raise RuntimeError(f"Querying job status failed: {exception}")
 
-        app_log.debug("Preparing for teardown...")
+        app_log.debug("Preparing for teardown")
 
-        app_log.debug("Closing SSH connection...")
+        app_log.debug("Closing SSH connection")
         conn.close()
         await conn.wait_closed()
         app_log.debug("SSH connection closed, returning result")
@@ -571,7 +622,8 @@ print(state.name)
         return result
 
     async def get_status(self, conn: asyncssh.SSHClientConnection) -> Result | str:
-        """Query the status of a job previously submitted to the job scheduler.
+        """
+        Query the status of a job previously submitted to the job scheduler.
 
         Args:
             conn: SSH connection object.
@@ -593,7 +645,8 @@ print(state.name)
         return proc.stdout.strip()
 
     async def _poll_scheduler(self, conn: asyncssh.SSHClientConnection) -> None:
-        """Poll a for the job until completion.
+        """
+        Poll for the job status until completion.
 
         Args:
             conn: SSH connection object.
@@ -605,15 +658,22 @@ print(state.name)
         # Poll status every `poll_freq` seconds
         status = await self.get_status(conn)
 
+        # Continue to poll until the job is done
         while status in {"QUEUED", "ACTIVE"}:
             await asyncio.sleep(self.poll_freq)
             status = await self.get_status(conn)
 
+        # NOTE: When https://github.com/ExaWorks/psij-python/issues/399 is resolved,
+        # we can remove the `FAILED` and `CANCELED` checks to instead be:
+        # ```python
+        # if status != "COMPLETED":
+        #    raise RuntimeError(f"Job {status} with native ID {self._jobid}.")
         if status == "FAILED":
             raise RuntimeError(f"Job with native ID {self._jobid} failed.")
         elif status == "CANCELED":
             raise RuntimeError(f"Job with native ID {self._jobid} cancelled.")
         elif status == "NEW":
+            # NOTE: This should never happen, but we include it here just in case.
             raise RuntimeError(
                 f"Job with native ID {self._jobid} was not found. State is unknown."
             )
@@ -621,8 +681,9 @@ print(state.name)
     async def _query_result(
         self,
         conn: asyncssh.SSHClientConnection,
-    ):
-        """Query and retrieve the task result including stdout and stderr logs.
+    ) -> tuple[Result, str, str, Exception]:
+        """
+        Query and retrieve the task result including stdout and stderr logs.
 
         Args:
             conn: SSH connection object.
@@ -669,12 +730,13 @@ print(state.name)
         return result, stdout, stderr, exception
 
     async def teardown(self, task_metadata: dict) -> None:
-        """Perform cleanup on remote machine.
+        """
+        Perform cleanup on remote machine.
 
         Args:
             task_metadata: Dictionary of metadata associated with the task.
-            Even though it's not used here, it is always passed by Covalent
-            and can't be removed.
+                Even though it's not used here, it is always passed by Covalent
+                and can't be removed.
 
         Returns:
             None
@@ -693,7 +755,7 @@ print(state.name)
 
     async def _perform_cleanup(self, conn: asyncssh.SSHClientConnection) -> None:
         """
-        Function to perform cleanup on remote machine
+        Function to perform cleanup on remote machine.
 
         Args:
             conn: SSH connection object
