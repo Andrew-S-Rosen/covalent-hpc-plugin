@@ -142,8 +142,6 @@ class HPCExecutor(AsyncBaseExecutor):
             if "address" in hpc_config
             else _EXECUTOR_PLUGIN_DEFAULTS["address"]
         )
-        if not self.address:
-            raise ValueError("address is a required parameter.")
 
         self.username = (
             username
@@ -399,6 +397,9 @@ print(state.name)
         Returns:
             The connection object
         """
+
+        if not self.address:
+            raise ValueError("address is a required parameter.")
 
         if self.cert_file:
             self.cert_file = Path(self.cert_file).expanduser().resolve()
