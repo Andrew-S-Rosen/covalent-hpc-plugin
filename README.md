@@ -6,20 +6,32 @@
 
 </div>
 
-## Covalent Executor Plugins
+## Covalent HPC Plugin
 
-Covalent is a Pythonic workflow tool used to execute tasks on advanced computing hardware. The way in which workflows and tasks interface with the hardware is through executor plugins, such as the local executor packaged with core Covalent. While the Covalent team has a rigorous roadmap to provide interfaces to many devices, you may find that you want more flexibility or customization for a particular environment. Here, we recommend creating a custom executor plugin. This repository serves as a template for creating such plugins.  For more information about how to get started with Covalent, check out the project [homepage](https://github.com/AgnostiqHQ/covalent) and the official [documentation](https://covalent.readthedocs.io/en/latest/).
+Covalent is a Pythonic workflow tool used to execute tasks on advanced computing hardware. This executor plugin uses [PSI/J](https://exaworks.org/psij-python/index.html) to allow Covalent to seamlessly interface with a variety of common high-performance computing job schedulers (e.g. Slurm, PBS, LSF, Flux, Cobalt). For workflows to be deployable, users must have SSH access to the login node on their desired machine and PSI/J installed in their remote machine's Python environment.
+
+## Installation
+
+To use this plugin with Covalent, simply install it using `pip`:
+
+```
+pip install git+...
+```
+
+## Usage
+
+TODO.
 
 ## Release Notes
 
-Release notes are available in the [Changelog](https://github.com/AgnostiqHQ/covalent-executor-template/blob/main/CHANGELOG.md).
+Release notes are available in the [Changelog](CHANGELOG.md).
 
 ## Citation
 
 Please use the following citation in any publications:
 
 > W. J. Cunningham, S. K. Radha, F. Hasan, J. Kanem, S. W. Neagle, and S. Sanand.
-> *Covalent.* Zenodo, 2022. https://doi.org/10.5281/zenodo.5903364
+> _Covalent._ Zenodo, 2022. https://doi.org/10.5281/zenodo.5903364
 
 ## License
 

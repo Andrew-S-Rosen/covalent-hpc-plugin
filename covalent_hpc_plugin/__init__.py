@@ -18,7 +18,4 @@
 #
 # Relief from the License may be granted by purchasing a commercial license.
 
-# Include any dependencies for the plugin in this file.
-
-asyncssh==2.13.2
-psij-python==0.9.0
+from .hpc import HPCExecutor
