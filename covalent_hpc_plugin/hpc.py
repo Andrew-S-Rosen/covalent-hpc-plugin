@@ -54,13 +54,12 @@ _EXECUTOR_PLUGIN_DEFAULTS = {
     "cert_file": None,
     # PSI/J parameters
     "instance": "slurm",
-    "python_executable": "python",
+    "remote_python_executable": "python",
+    "remote_conda_env": None,
     "inherit_environment": True,
     "environment": None,
     "resource_spec": None,
     "job_attributes": None,
-    "pre_launch": None,
-    "post_launch": None,
     "launcher": "single",
     # Covalent parameters
     "remote_workdir": "~/covalent-workdir",
@@ -83,10 +82,9 @@ class HPCExecutor(AsyncBaseExecutor):
         ssh_key_file: Private RSA key used to authenticate over SSH (usually at ~/.ssh/id_rsa).
         cert_file: Certificate file used to authenticate over SSH, if required (usually has extension .pub).
         instance: PSI/J instance to use for job submission.
-        python_executable: Python executable to use for job submission.
+        remote_python_executable: Python executable to use for job submission.
+        remote_conda_env: Conda environment to activate on the remote machine.
         environment: Environment variables to set for the job.
-        pre_launch: Scripts to run before launching the job.
-        post_launch: Scripts to run after launching the job.
         resource_spec: ResourceSpec for the job.
         job_attributes: JobAttributes for the job.
         launcher: Launcher to use for the job.
@@ -108,11 +106,10 @@ class HPCExecutor(AsyncBaseExecutor):
         cert_file: str | None = _DEFAULT,
         # PSI/J parameters
         instance: Literal["cobalt", "flux", "local", "lsf", "pbspro", "rp", "slurm"] = _DEFAULT,
-        python_executable: str = _DEFAULT,
+        remote_python_executable: str = _DEFAULT,
+        remote_conda_env: str | None = _DEFAULT,
         inherit_environment: bool = _DEFAULT,
         environment: dict | None = _DEFAULT,
-        pre_launch: str | None = _DEFAULT,
-        post_launch: str | None = _DEFAULT,
         resource_spec: dict | None = _DEFAULT,
         job_attributes: dict | None = _DEFAULT,
         launcher: Literal["aprun", "jsrun", "mpirun", "multiple", "single", "srun"] = _DEFAULT,
@@ -179,12 +176,20 @@ class HPCExecutor(AsyncBaseExecutor):
             else _EXECUTOR_PLUGIN_DEFAULTS["instance"]
         )
 
-        self.python_executable = (
-            python_executable
-            if python_executable != _DEFAULT
-            else hpc_config["python_executable"]
-            if "python_executable" in hpc_config
-            else _EXECUTOR_PLUGIN_DEFAULTS["python_executable"]
+        self.remote_python_executable = (
+            remote_python_executable
+            if remote_python_executable != _DEFAULT
+            else hpc_config["remote_python_executable"]
+            if "remote_python_executable" in hpc_config
+            else _EXECUTOR_PLUGIN_DEFAULTS["remote_python_executable"]
+        )
+
+        self.remote_conda_env = (
+            remote_conda_env
+            if remote_conda_env != _DEFAULT
+            else hpc_config["remote_conda_env"]
+            if "remote_conda_env" in hpc_config
+            else _EXECUTOR_PLUGIN_DEFAULTS["remote_conda_env"]
         )
 
         self.inherit_environment = (
@@ -201,22 +206,6 @@ class HPCExecutor(AsyncBaseExecutor):
             else hpc_config["environment"]
             if "environment" in hpc_config
             else _EXECUTOR_PLUGIN_DEFAULTS["environment"]
-        )
-
-        self.pre_launch = (
-            pre_launch
-            if pre_launch != _DEFAULT
-            else hpc_config["pre_launch"]
-            if "pre_launch" in hpc_config
-            else _EXECUTOR_PLUGIN_DEFAULTS["pre_launch"]
-        )
-
-        self.post_launch = (
-            post_launch
-            if post_launch != _DEFAULT
-            else hpc_config["post_launch"]
-            if "post_launch" in hpc_config
-            else _EXECUTOR_PLUGIN_DEFAULTS["post_launch"]
         )
 
         self.resource_spec = (
@@ -291,7 +280,7 @@ from pathlib import Path
 
 import cloudpickle as pickle
 
-with open(Path("{self._remote_func_filename}").expanduser().resolve(), "rb") as f:
+with open(Path("{self._remote_func_filepath}").expanduser().resolve(), "rb") as f:
     function, args, kwargs = pickle.load(f)
 
 result = None
@@ -302,7 +291,7 @@ try:
 except Exception as e:
     exception = e
 
-with open(Path("{self._remote_result_filename}").expanduser().resolve(), "wb") as f:
+with open(Path("{self._remote_result_filepath}").expanduser().resolve(), "wb") as f:
     pickle.dump((result, exception), f)
 """
 
@@ -319,19 +308,13 @@ with open(Path("{self._remote_result_filename}").expanduser().resolve(), "wb") a
             f"attributes=JobAttributes(**{self.job_attributes})," if self.job_attributes else ""
         )
         pre_launch_string = (
-            f"pre_launch=Path('{self.pre_launch}').expanduser().resolve(),"
-            if self.pre_launch
-            else ""
-        )
-        post_launch_string = (
-            f"post_launch=Path('{self.post_launch}').expanduser().resolve(),"
-            if self.post_launch
+            f"pre_launch=Path('{self._remote_pre_launch_filepath}').expanduser().resolve(),"
+            if self.remote_conda_env
             else ""
         )
 
         return f"""
 from pathlib import Path
-from shutil import which
 from psij import Job, JobAttributes, JobExecutor, JobSpec, ResourceSpecV1
 
 job_executor = JobExecutor.get_instance("{self.instance}")
@@ -339,16 +322,15 @@ job_executor = JobExecutor.get_instance("{self.instance}")
 job = Job(
     JobSpec(
         name="{self._name}",
-        executable=which("{self.python_executable}"),
-        arguments=[str(Path("{self._remote_py_script_filename}").expanduser().resolve())],
+        executable="{self.remote_python_executable}",
+        arguments=[str(Path("{self._remote_py_script_filepath}").expanduser().resolve())],
         directory=Path("{self._job_remote_workdir}").expanduser().resolve(),
         environment={self.environment},
-        stdout_path=Path("{self._remote_stdout_path}").expanduser().resolve(),
-        stderr_path=Path("{self._remote_stderr_path}").expanduser().resolve(),
+        stdout_path=Path("{self._remote_stdout_filepath}").expanduser().resolve(),
+        stderr_path=Path("{self._remote_stderr_filepath}").expanduser().resolve(),
         {resources_string}
         {attributes_string}
         {pre_launch_string}
-        {post_launch_string}
         launcher="{self.launcher}",
     )
 )
@@ -383,7 +365,7 @@ job_status = job.wait(
     ],
     timeout = timedelta(seconds=10),
 )
-state = job_status.state or JobState.NEW
+state = job_status.state or JobState.COMPLETED
 print(state.name)
 """
 
@@ -461,16 +443,20 @@ print(state.name)
         func_filename = f"func-{dispatch_id}-{node_id}.pkl"
         stdout_filename = f"stdout-{dispatch_id}-{node_id}.log"
         stderr_filename = f"stderr-{dispatch_id}-{node_id}.log"
+        pre_launch_file = f"pre-launch-{dispatch_id}-{node_id}.sh"
 
-        self._remote_result_filename = self._job_remote_workdir / result_filename
-        self._remote_job_script_filename = self._job_remote_workdir / job_script_filename
-        self._remote_py_script_filename = self._job_remote_workdir / py_script_filename
-        self._remote_query_status_filename = (
+        self._remote_result_filepath = self._job_remote_workdir / result_filename
+        self._remote_jobscript_filepath = self._job_remote_workdir / job_script_filename
+        self._remote_py_script_filepath = self._job_remote_workdir / py_script_filename
+        self._remote_query_status_filepath = (
             self._job_remote_workdir / query_status_script_filename
         )
-        self._remote_func_filename = self._job_remote_workdir / func_filename
-        self._remote_stdout_path = self._job_remote_workdir / stdout_filename
-        self._remote_stderr_path = self._job_remote_workdir / stderr_filename
+        self._remote_func_filepath = self._job_remote_workdir / func_filename
+        self._remote_stdout_filepath = self._job_remote_workdir / stdout_filename
+        self._remote_stderr_filepath = self._job_remote_workdir / stderr_filename
+        self._remote_pre_launch_filepath = (
+            self._job_remote_workdir / pre_launch_file if self.remote_conda_env else None
+        )
 
         # Establish connection
         conn = await self._client_connect()
@@ -493,9 +479,9 @@ print(state.name)
             await temp.flush()
 
             app_log.debug(
-                f"Copying pickled function to remote fs: {self._remote_func_filename} ..."
+                f"Copying pickled function to remote fs: {self._remote_func_filepath} ..."
             )
-            await asyncssh.scp(temp.name, (conn, self._remote_func_filename))
+            await asyncssh.scp(temp.name, (conn, self._remote_func_filepath))
 
         async with aiofiles.tempfile.NamedTemporaryFile(dir=self.cache_dir, mode="w") as temp:
             # Format the function execution script, write to file, and copy to remote filesystem
@@ -505,9 +491,9 @@ print(state.name)
             await temp.flush()
 
             app_log.debug(
-                f"Copying python run-function to remote fs: {self._remote_py_script_filename}"
+                f"Copying python run-function to remote fs: {self._remote_py_script_filepath}"
             )
-            await asyncssh.scp(temp.name, (conn, self._remote_py_script_filename))
+            await asyncssh.scp(temp.name, (conn, self._remote_py_script_filepath))
 
         async with aiofiles.tempfile.NamedTemporaryFile(dir=self.cache_dir, mode="w") as temp:
             # Format the submit script, write to file, and copy to remote filesystem
@@ -517,18 +503,37 @@ print(state.name)
             await temp.flush()
 
             app_log.debug(
-                f"Copying submit script to remote fs: {self._remote_job_script_filename} ..."
+                f"Copying submit script to remote fs: {self._remote_jobscript_filepath} ..."
             )
-            await asyncssh.scp(temp.name, (conn, self._remote_job_script_filename))
+            await asyncssh.scp(temp.name, (conn, self._remote_jobscript_filepath))
+
+        if self.remote_conda_env:
+            async with aiofiles.tempfile.NamedTemporaryFile(dir=self.cache_dir, mode="w") as temp:
+                # Make the pre launch file
+                pre_launch_script = f"source activate {self.remote_conda_env}"
+                app_log.debug("Writing pre launch file...")
+                await temp.write(pre_launch_script)
+                await temp.flush()
+
+                app_log.debug(
+                    f"Copying pre launch script to remote fs: {self._remote_pre_launch_filepath} ..."
+                )
+                await asyncssh.scp(temp.name, (conn, self._remote_pre_launch_filepath))
+
+                cmd_chmod = f"chmod +x {self._remote_pre_launch_filepath}"
+                proc_chmod = await conn.run(cmd_chmod)
+
+                if client_err := proc_chmod.stderr.strip():
+                    raise RuntimeError(f"Changing permissions failed with file: {proc_chmod}")
 
         # Execute the job submission script
         app_log.debug(f"Submitting the job...")
-        proc = await conn.run(f"{self.python_executable} {self._remote_job_script_filename}")
+        proc = await conn.run(f"{self.remote_python_executable} {self._remote_jobscript_filepath}")
 
         if proc.returncode != 0:
             raise RuntimeError(f"Job submission failed: {proc.stderr.strip()}")
 
-        app_log.debug(f"Job submitted with stdout: {self._remote_stdout_path}")
+        app_log.debug(f"Job submitted with stdout: {self._remote_stdout_filepath}")
 
         self._jobid = proc.stdout.strip()
 
@@ -540,9 +545,9 @@ print(state.name)
             await temp.flush()
 
             app_log.debug(
-                f"Copying python query-function to remote fs: {self._remote_query_status_filename}"
+                f"Copying python query-function to remote fs: {self._remote_query_status_filepath}"
             )
-            await asyncssh.scp(temp.name, (conn, self._remote_query_status_filename))
+            await asyncssh.scp(temp.name, (conn, self._remote_query_status_filepath))
 
         app_log.debug(f"Polling job scheduler with job_id: {self._jobid} ...")
         await self._poll_scheduler(conn)
@@ -578,7 +583,9 @@ print(state.name)
         if self._jobid is None:
             return Result.NEW_OBJ
 
-        proc = await conn.run(f"{self.python_executable} {self._remote_query_status_filename}")
+        proc = await conn.run(
+            f"{self.remote_python_executable} {self._remote_query_status_filepath}"
+        )
 
         if proc.returncode != 0:
             raise RuntimeError(f"Getting job status failed: {proc.stderr.strip()}")
@@ -606,6 +613,10 @@ print(state.name)
             raise RuntimeError(f"Job with native ID {self._jobid} failed.")
         elif status == "CANCELED":
             raise RuntimeError(f"Job with native ID {self._jobid} cancelled.")
+        elif status == "NEW":
+            raise RuntimeError(
+                f"Job with native ID {self._jobid} was not found. State is unknown."
+            )
 
     async def _query_result(
         self,
@@ -624,23 +635,23 @@ print(state.name)
         """
 
         # Check the result file exists on the remote backend
-        proc = await conn.run(f"test -e {self._remote_result_filename}")
+        proc = await conn.run(f"test -e {self._remote_result_filepath}")
 
         if proc.returncode != 0:
             raise FileNotFoundError(
-                proc.returncode, proc.stderr.strip(), self._remote_result_filename
+                proc.returncode, proc.stderr.strip(), self._remote_result_filepath
             )
 
         # Copy result file from remote machine to Covalent server
-        local_result_filename = self._task_results_dir / self._remote_result_filename.name
-        await asyncssh.scp((conn, self._remote_result_filename), local_result_filename)
+        local_result_filename = self._task_results_dir / self._remote_result_filepath.name
+        await asyncssh.scp((conn, self._remote_result_filepath), local_result_filename)
 
         # Copy stdout, stderr from remote machine to Covalent server
-        local_stdout_file = self._task_results_dir / self._remote_stdout_path.name
-        local_stderr_file = self._task_results_dir / self._remote_stderr_path.name
+        local_stdout_file = self._task_results_dir / self._remote_stdout_filepath.name
+        local_stderr_file = self._task_results_dir / self._remote_stderr_filepath.name
 
-        await asyncssh.scp((conn, self._remote_stdout_path), local_stdout_file)
-        await asyncssh.scp((conn, self._remote_stderr_path), local_stderr_file)
+        await asyncssh.scp((conn, self._remote_stdout_filepath), local_stdout_file)
+        await asyncssh.scp((conn, self._remote_stderr_filepath), local_stderr_file)
 
         async with aiofiles.open(local_result_filename, "rb") as f:
             contents = await f.read()
@@ -692,14 +703,16 @@ print(state.name)
         """
         files_to_remove = (
             [
-                self._remote_func_filename,
-                self._remote_job_script_filename,
-                self._remote_py_script_filename,
-                self._remote_query_status_filename,
-                self._remote_result_filename,
-                self._remote_stdout_path,
-                self._remote_stderr_path,
+                self._remote_func_filepath,
+                self._remote_jobscript_filepath,
+                self._remote_py_script_filepath,
+                self._remote_query_status_filepath,
+                self._remote_result_filepath,
+                self._remote_stdout_filepath,
+                self._remote_stderr_filepath,
             ],
         )
+        if self._remote_pre_launch_filepath:
+            files_to_remove.append(self._remote_pre_launch_filepath)
         for f in files_to_remove:
             await conn.run(f"rm {f}")
