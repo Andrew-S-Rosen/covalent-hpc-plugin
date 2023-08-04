@@ -340,6 +340,9 @@ with open(Path("{self._remote_result_filepath}").expanduser().resolve(), "wb") a
         """
         Create the PSI/J Python script that will submit the compute job to the scheduler.
 
+        NOTE: When PSI/J Remote is released, we can do this directly on the Covalent server
+        instead of having to copy the script to the remote machine and running it there.
+
         Returns:
             String representation of the Python script to make/execute the PSI/J Job object.
         """
@@ -384,6 +387,9 @@ print(job.native_id)
     def _format_query_status_script(self) -> str:
         """
         Create the PSI/J Python script to query the submitted job status.
+
+        NOTE: When PSI/J Remote is released, we can do this directly on the Covalent server
+        instead of having to copy the script to the remote machine and running it there.
 
         Returns:
             String representation of the Python script to query the job status with PSI/J.
@@ -547,18 +553,6 @@ print(state.name)
             )
             await asyncssh.scp(temp.name, (conn, self._remote_py_script_filepath))
 
-        # Format the PSI/J Python submit script, write to file, and copy to remote filesystem
-        async with aiofiles.tempfile.NamedTemporaryFile(dir=self.cache_dir, mode="w") as temp:
-            submit_script = self._format_job_script()
-            app_log.debug("Writing PSI/J submit script to tempfile")
-            await temp.write(submit_script)
-            await temp.flush()
-
-            app_log.debug(
-                f"Copying PSI/J submit script to remote filesystem: {self._remote_jobscript_filepath} ..."
-            )
-            await asyncssh.scp(temp.name, (conn, self._remote_jobscript_filepath))
-
         # Make the pre launch file (to activate the Conda environment)
         if self.remote_conda_env:
             async with aiofiles.tempfile.NamedTemporaryFile(dir=self.cache_dir, mode="w") as temp:
@@ -577,6 +571,22 @@ print(state.name)
 
                 if client_err := proc_chmod.stderr.strip():
                     raise RuntimeError(f"Changing permissions failed with file: {proc_chmod}")
+
+        # ---------------------------------------------------------------------------------------------
+        # NOTE: When PSI/J Remote is released, we can do the following server-side instead.
+        # ---------------------------------------------------------------------------------------------
+
+        # Format the PSI/J Python submit script, write to file, and copy to remote filesystem
+        async with aiofiles.tempfile.NamedTemporaryFile(dir=self.cache_dir, mode="w") as temp:
+            submit_script = self._format_job_script()
+            app_log.debug("Writing PSI/J submit script to tempfile")
+            await temp.write(submit_script)
+            await temp.flush()
+
+            app_log.debug(
+                f"Copying PSI/J submit script to remote filesystem: {self._remote_jobscript_filepath} ..."
+            )
+            await asyncssh.scp(temp.name, (conn, self._remote_jobscript_filepath))
 
         # Execute the job submission Python script
         app_log.debug(f"Submitting the job")
@@ -603,14 +613,16 @@ print(state.name)
         app_log.debug(f"Polling job scheduler with job_id: {self._jobid}")
         await self._poll_scheduler(conn)
 
-        app_log.debug(f"Querying result with job_id: {self._jobid}")
-        result, stdout, stderr, exception = await self._query_result(conn)
+        # ---------------------------------------------------------------------------------------------
+
+        app_log.debug(f"Fetching result with job_id: {self._jobid}")
+        result, stdout, stderr, exception = await self._fetch_result(conn)
 
         print(stdout)
         print(stderr, file=sys.stderr)
 
         if exception:
-            raise RuntimeError(f"Querying job status failed: {exception}")
+            raise RuntimeError(f"Fetching job result failed: {exception}")
 
         app_log.debug("Preparing for teardown")
 
@@ -678,7 +690,7 @@ print(state.name)
                 f"Job with native ID {self._jobid} was not found. State is unknown."
             )
 
-    async def _query_result(
+    async def _fetch_result(
         self,
         conn: asyncssh.SSHClientConnection,
     ) -> tuple[Result, str, str, Exception]:
@@ -757,6 +769,10 @@ print(state.name)
         """
         Function to perform cleanup on remote machine.
 
+        NOTE: When PSI/J Remote is released, the following files will no longer need to be
+        deleted: `self._remote_jobscript_filepath`, `self._remote_query_status_filepath`,
+        `self._remote_pre_launch_filepath`.
+
         Args:
             conn: SSH connection object
 
@@ -766,8 +782,8 @@ print(state.name)
         files_to_remove = (
             [
                 self._remote_func_filepath,
-                self._remote_jobscript_filepath,
                 self._remote_py_script_filepath,
+                self._remote_jobscript_filepath,
                 self._remote_query_status_filepath,
                 self._remote_result_filepath,
                 self._remote_stdout_filepath,
