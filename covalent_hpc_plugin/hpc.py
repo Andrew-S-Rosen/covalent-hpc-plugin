@@ -456,7 +456,6 @@ print(state.name)
         Returns:
             String representation of the pre-launch script.
         """
-        pre_launch_script = ""
         if self.remote_conda_env:
             pre_launch_script = f"""
 source activate {self.remote_conda_env}
@@ -467,6 +466,9 @@ if [ $retval -ne 0 ] ; then
     exit 99
 fi
 """
+        else:
+            pre_launch_script = ""
+            
         pre_launch_script += f"""
 remote_py_version=$(python -c "print('.'.join(map(str, __import__('sys').version_info[:2])))")
 if [[ "{self._remote_python_version}" != $remote_py_version ]] ; then
