@@ -305,6 +305,10 @@ class HPCExecutor(AsyncBaseExecutor):
             else _EXECUTOR_PLUGIN_DEFAULTS["poll_freq"]
         )
 
+        if self.poll_freq < 30:
+            print("Polling frequency will be increased to 30 seconds.")
+            self.poll_freq = 30
+
         # Make sure local cache dir exists
         os.makedirs(self.cache_dir, exist_ok=True)
 
