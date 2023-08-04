@@ -51,9 +51,22 @@ _EXECUTOR_PLUGIN_DEFAULTS = {
     # PSI/J parameters
     "instance": "slurm",
     "inherit_environment": True,
-    "environment": None,
-    "resource_spec": None,
-    "job_attributes": None,
+    "environment": {},
+    "resource_spec_kwargs": {
+        "node_count": 1,
+        "exclusive_node_use": False,
+        "process_count": 1,
+        "processes_per_node": 1,
+        "cpu_cores_per_process": 1,
+        "gpu_cores_per_process": 0,
+    },
+    "job_attributes_kwargs": {
+        "duration": 10,  # minutes
+        "queue_name": None,
+        "project_name": None,
+        "reservation_id": None,
+        "custom_attributes": None,
+    },
     "launcher": "single",
     # Remote Python env parameters
     "remote_python_executable": "python",
@@ -73,25 +86,25 @@ class ResourceSpecV1Hint(TypedDict):
     """
     Type hint for PSI/J `ResourceSpecV1` object.
 
-    Source: https://exaworks.org/job-api-spec/specification.html#resourcespecv1
+    Reference: https://exaworks.org/psij-python/docs/v/0.9.0/.generated/psij.html#psij.resource_spec.ResourceSpecV1
     """
 
     node_count: int
-    exclusive_node_use: bool
     process_count: int
     processes_per_node: int
     cpu_cores_per_process: int
     gpu_cores_per_process: int
+    exclusive_node_use: bool
 
 
 class JobAttributesHint(TypedDict):
     """
     Type hint for PSI/J `JobAttributes` object.
 
-    Source: https://exaworks.org/psij-python/docs/v/0.9.0/_modules/psij/job_attributes.html#JobAttributes
+    Reference: https://exaworks.org/psij-python/docs/v/0.9.0/_modules/psij/job_attributes.html#JobAttributes
     """
 
-    duration: timedelta
+    duration: timedelta | int
     queue_name: str | None
     project_name: str | None
     reservation_id: str | None
@@ -116,10 +129,10 @@ class HPCExecutor(AsyncBaseExecutor):
             Must be one of: "cobalt", "flux", "local", "lsf", "pbspro", "rp", "slurm". Defaults to "slurm".
         launcher: The PSI/J `JobSpec` launcher to use for the job.
             Must be one of: "aprun", "jsrun", "mpirun", "multiple", "single", "srun". Defaults to "single".
-        resource_spec: The PSI/J keyword arguments for `ResourceSpecV1`, which describes the resources to
-            reserve on the scheduling system. Defaults to None, which is equivalent to {}.
-        job_attributes: The PSI/J keyword arguments for `JobAttributes`, which describes information about how the
-            job is queued and run. Defaults to None, which is equivalent to {}.
+        resource_spec_kwargs: The PSI/J keyword arguments for `ResourceSpecV1`, which describes the resources to
+            reserve on the scheduling system. Defaults to None, which is equivalent to the PSI/J defaults.
+        job_attributes_kwargs: The PSI/J keyword arguments for `JobAttributes`, which describes information about how the
+            job is queued and run. Defaults to None, which is equivalent to the PSI/J defaults.
         inherit_environment: Whether the job should inherit the parent environment. Defaults to True.
         environment: Environment variables to set for the job. Defaults to None, which is equivalent to {}.
         remote_python_executable: Python executable to use for job submission. Defaults to "python".
@@ -134,7 +147,7 @@ class HPCExecutor(AsyncBaseExecutor):
         log_stdout: Path to file to log stdout to. Defaults to "" (i.e. no logging).
         log_stderr: Path to file to log stderr to. Defaults to "" (i.e. no logging).
         time_limit: time limit for the task (in seconds). Defaults to -1 (i.e. no time limit). Note that this is
-            not the same as the job scheduler's time limit, which is set in `job_attributes`.
+            not the same as the job scheduler's time limit, which is set in `job_attributes_kwargs`.
         retries: Number of times to retry execution upon failure. Defaults to 0 (i.e. no retries).
     """
 
@@ -148,8 +161,8 @@ class HPCExecutor(AsyncBaseExecutor):
         # PSI/J parameters
         instance: Literal["cobalt", "flux", "local", "lsf", "pbspro", "rp", "slurm"] = _DEFAULT,
         launcher: Literal["aprun", "jsrun", "mpirun", "multiple", "single", "srun"] = _DEFAULT,
-        resource_spec: ResourceSpecV1Hint = _DEFAULT,
-        job_attributes: JobAttributesHint = _DEFAULT,
+        resource_spec_kwargs: ResourceSpecV1Hint = _DEFAULT,
+        job_attributes_kwargs: JobAttributesHint = _DEFAULT,
         inherit_environment: bool = _DEFAULT,
         environment: dict[str, str] | None = _DEFAULT,
         # Remote Python env parameters
@@ -223,21 +236,25 @@ class HPCExecutor(AsyncBaseExecutor):
             else _EXECUTOR_PLUGIN_DEFAULTS["launcher"]
         )
 
-        self.resource_spec = (
-            resource_spec
-            if resource_spec != _DEFAULT
-            else hpc_config["resource_spec"]
-            if "resource_spec" in hpc_config
-            else _EXECUTOR_PLUGIN_DEFAULTS["resource_spec"]
+        self.resource_spec_kwargs = (
+            resource_spec_kwargs
+            if resource_spec_kwargs != _DEFAULT
+            else hpc_config["resource_spec_kwargs"]
+            if "resource_spec_kwargs" in hpc_config
+            else _EXECUTOR_PLUGIN_DEFAULTS["resource_spec_kwargs"]
         )
 
-        self.job_attributes = (
-            job_attributes
-            if job_attributes != _DEFAULT
-            else hpc_config["job_attributes"]
-            if "job_attributes" in hpc_config
-            else _EXECUTOR_PLUGIN_DEFAULTS["job_attributes"]
+        self.job_attributes_kwargs = (
+            job_attributes_kwargs
+            if job_attributes_kwargs != _DEFAULT
+            else hpc_config["job_attributes_kwargs"]
+            if "job_attributes_kwargs" in hpc_config
+            else _EXECUTOR_PLUGIN_DEFAULTS["job_attributes_kwargs"]
         )
+        if isinstance(self.job_attributes_kwargs.get("duration"), int):
+            self.job_attributes_kwargs["duration"] = timedelta(
+                minutes=self.job_attributes_kwargs["duration"]
+            )
 
         self.inherit_environment = (
             inherit_environment
@@ -351,10 +368,14 @@ with open(Path("{self._remote_result_filepath}").expanduser().resolve(), "wb") a
             String representation of the Python script to make/execute the PSI/J Job object.
         """
         resources_string = (
-            f"resources=ResourceSpecV1(**{self.resource_spec})," if self.resource_spec else ""
+            f"resources=ResourceSpecV1(**{self.resource_spec_kwargs}),"
+            if self.resource_spec_kwargs
+            else ""
         )
         attributes_string = (
-            f"attributes=JobAttributes(**{self.job_attributes})," if self.job_attributes else ""
+            f"attributes=JobAttributes(**{self.job_attributes_kwargs}),"
+            if self.job_attributes_kwargs
+            else ""
         )
         pre_launch_string = (
             f"pre_launch=Path('{self._remote_pre_launch_filepath}').expanduser().resolve(),"
