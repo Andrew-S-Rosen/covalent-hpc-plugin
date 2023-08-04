@@ -14,7 +14,7 @@
 
 ### Server Environment
 
-To use this plugin with Covalent, simply install it using `pip` in whatever Python environment you use to run the Covalent server:
+To use this plugin with Covalent, simply install it using `pip` in whatever Python environment you use to run the Covalent server (your local machine by default):
 
 ```
 pip install git+https://github.com/arosen93/covalent-hpc-plugin.git
@@ -63,6 +63,8 @@ gpu_cores_per_process = 0
 [executors.hpc.job_attributes_kwargs]
 duration = 10
 ```
+
+As you can see above, you can modify various parameters as-needed to better suit your needs, such as the `address` of the remote machine, the `username` to use when logging in, the `ssh_key_file` to use for authentication, the type of job scheduler (`instance`), and much more. Note that PSI/J is a common interface to many common job schedulers, so you only need to toggle the `instance` to switch between job schedulers.
 
 A full description of the various input parameters are described in the docstrings of the `HPCExecutor` class, reproduced below:
 
