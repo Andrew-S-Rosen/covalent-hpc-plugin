@@ -68,9 +68,13 @@ A full description of the various input parameters are described in the docstrin
 
 https://github.com/arosen93/covalent-hpc-plugin/blob/9688f04d0fac3caaa8accb6eb9da6715c8c5f264/covalent_hpc_plugin/hpc.py#L114-L181
 
+### Defining Resource Specifications and Job Attributes
+
 Two of the most important sets of parameters are `resource_spec_kwargs` and `job_attributes_kwargs`, which used to specify the resources required for the job (e.g. number of nodes, number of processes per node, etc.) and the job attributes (e.g. duration, queue name, etc.), respectively. The `resource_spec_kwargs` is a dictionary of keyword arguments passed to PSI/J's [`ResourceSpecV1`](https://exaworks.org/psij-python/docs/v/0.9.0/.generated/psij.html#psij.resource_spec.ResourceSpecV1) class, whereas `job_attributes_kwargs` is a dictionary of keyword arguments passed to PSI/J's [`JobAttributes`](https://exaworks.org/psij-python/docs/v/0.9.0/.generated/psij.html#psij.JobAttributes) class. The allowed types are shown below:
 
 https://github.com/arosen93/covalent-hpc-plugin/blob/367a84acd2114b31cf603f6b8a6e3f46c246c44a/covalent_hpc_plugin/hpc.py#L85-L111
+
+### Using the Plugin in a Workflow: Approach 1
 
 With the configuration file appropriately set up, one can run a workflow on the HPC machine as follows:
 
@@ -90,7 +94,7 @@ dispatch_id = ct.dispatch(workflow)(1, 2)
 result = ct.get_result(dispatch_id)
 ```
 
-### Instantiating the `HPCExecutor` Class
+### Using the Plugin in a Workflow: Approach 2
 
 If you wish to modify the various parameters within your Python script rather than solely relying on the the Covalent configuration file, it is possible to do that as well by instantiating a custom instance of the `HPCExecutor` class. An example with some commonly used parameters is shown below. By defauly, any parameters not specified in the `HPCExecutor` will be inherited from the configuration file.
 
@@ -119,7 +123,7 @@ executor = ct.executor.HPCExecutor(
 )
 ```
 
-## Working Example: Perlmutter
+### Working Example: Perlmutter
 
 The following is a minimal working example to submit a Covalent job on NERSC's [Perlmutter](https://docs.nersc.gov/systems/perlmutter/) machine. This example assumes you have an account named "UserName", a project named "ProjectName", and a Conda environment named `myenv` on Perlmutter with both Covalent and PSI/J installed. It also assumes that you have used the [sshproxy](https://docs.nersc.gov/connect/mfa/#sshproxy) utility to generate a certificate file in order to bypass the need for multi-factor authentication.
 
