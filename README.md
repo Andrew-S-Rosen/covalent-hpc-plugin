@@ -68,7 +68,7 @@ A full description of the various input parameters are described in the docstrin
 
 https://github.com/arosen93/covalent-hpc-plugin/blob/9688f04d0fac3caaa8accb6eb9da6715c8c5f264/covalent_hpc_plugin/hpc.py#L114-L181
 
-Two of the most important sets of parameters are `resource_spec_kwargs` and `job_attributes_kwargs`, which used to specify the resources required for the job (e.g. number of nodes, number of processes per node, etc.) and the job attributes (e.g. duration, queue name, etc.), respectively. The `resource_spec_kwargs` is a dictionary of keyword arguments passed to PSI/J's [`ResourceSpecV1`](https://exaworks.org/psij-python/docs/v/0.9.0/.generated/psij.html#psij.resource_spec.ResourceSpecV1) class, whereas `job_attributes_kwargs` is a dictionary of keyword arguments passed to PSI/J's [`JobAttributes`](https://exaworks.org/psij-python/docs/v/0.9.0/_modules/psij/job_attributes.html#JobAttributes) class.
+Two of the most important sets of parameters are `resource_spec_kwargs` and `job_attributes_kwargs`, which used to specify the resources required for the job (e.g. number of nodes, number of processes per node, etc.) and the job attributes (e.g. duration, queue name, etc.), respectively. The `resource_spec_kwargs` is a dictionary of keyword arguments passed to PSI/J's [`ResourceSpecV1`](https://exaworks.org/psij-python/docs/v/0.9.0/.generated/psij.html#psij.resource_spec.ResourceSpecV1) class, whereas `job_attributes_kwargs` is a dictionary of keyword arguments passed to PSI/J's [`JobAttributes`](https://exaworks.org/psij-python/docs/v/0.9.0/.generated/psij.html#psij.JobAttributes) class.
 
 With the configuration file appropriately set up, one can run a workflow on the HPC machine as follows:
 

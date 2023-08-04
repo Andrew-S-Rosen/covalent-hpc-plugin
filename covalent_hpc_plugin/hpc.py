@@ -101,7 +101,7 @@ class JobAttributesHint(TypedDict):
     """
     Type hint for PSI/J `JobAttributes` object.
 
-    Reference: https://exaworks.org/psij-python/docs/v/0.9.0/_modules/psij/job_attributes.html#JobAttributes
+    Reference: https://exaworks.org/psij-python/docs/v/0.9.0/.generated/psij.html#psij.JobAttributes
     """
 
     duration: timedelta | int
@@ -468,7 +468,7 @@ fi
 """
         else:
             pre_launch_script = ""
-            
+
         pre_launch_script += f"""
 remote_py_version=$(python -c "print('.'.join(map(str, __import__('sys').version_info[:2])))")
 if [[ "{self._remote_python_version}" != $remote_py_version ]] ; then
