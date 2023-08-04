@@ -308,7 +308,7 @@ class HPCExecutor(AsyncBaseExecutor):
         # Make sure local cache dir exists
         os.makedirs(self.cache_dir, exist_ok=True)
 
-    def _format_py_script(self) -> str:
+    def _format_pickle_script(self) -> str:
         """
         Create the Python script that executes the pickled python function.
 
@@ -368,7 +368,7 @@ job = Job(
     JobSpec(
         name="{self._name}",
         executable="{self.remote_python_executable}",
-        arguments=[str(Path("{self._remote_py_script_filepath}").expanduser().resolve())],
+        arguments=[str(Path("{self._remote_pickle_script_filepath}").expanduser().resolve())],
         directory=Path("{self._job_remote_workdir}").expanduser().resolve(),
         environment={self.environment},
         stdout_path=Path("{self._remote_stdout_filepath}").expanduser().resolve(),
@@ -422,6 +422,34 @@ job_status = job.wait(
 state = job_status.state or JobState.COMPLETED
 print(state.name)
 """
+
+    def _format_pre_launch_script(self) -> str:
+        """
+        Create the pre-launch script to activate the conda environment
+        and check the Python version.
+
+        Returns:
+            String representation of the pre-launch script.
+        """
+        pre_launch_script = ""
+        if self.remote_conda_env:
+            pre_launch_script = f"""
+source activate {self.remote_conda_env}
+retval=$?
+if [ $retval -ne 0 ] ; then
+    >&2 echo "Conda environment {self.remote_conda_env} is not present on the compute node. "\
+    "Please create the environment and try again."
+    exit 99
+fi
+"""
+        pre_launch_script += f"""
+remote_py_version=$(python -c "print('.'.join(map(str, __import__('sys').version_info[:2])))")
+if [[ "{self._remote_python_version}" != $remote_py_version ]] ; then
+>&2 echo "Python version mismatch. Please install Python {self._remote_python_version} in the compute environment."
+exit 199
+fi
+"""
+        return pre_launch_script
 
     async def _client_connect(self) -> asyncssh.SSHClientConnection:
         """
@@ -495,7 +523,7 @@ print(state.name)
 
         result_filename = f"result-{dispatch_id}-{node_id}.pkl"
         job_script_filename = f"psij-{dispatch_id}-{node_id}.py"
-        py_script_filename = f"script-{dispatch_id}-{node_id}.py"
+        pickle_script_filename = f"script-{dispatch_id}-{node_id}.py"
         query_status_script_filename = f"query-status-{dispatch_id}-{node_id}.py"
         func_filename = f"func-{dispatch_id}-{node_id}.pkl"
         stdout_filename = f"stdout-{dispatch_id}-{node_id}.log"
@@ -504,8 +532,8 @@ print(state.name)
 
         self._remote_result_filepath = self._job_remote_workdir / result_filename
         self._remote_jobscript_filepath = self._job_remote_workdir / job_script_filename
-        self._remote_py_script_filepath = self._job_remote_workdir / py_script_filename
-        self._remote_query_status_filepath = (
+        self._remote_pickle_script_filepath = self._job_remote_workdir / pickle_script_filename
+        self._remote_query_script_filepath = (
             self._job_remote_workdir / query_status_script_filename
         )
         self._remote_func_filepath = self._job_remote_workdir / func_filename
@@ -519,8 +547,8 @@ print(state.name)
         conn = await self._client_connect()
 
         # Check if the remote Python version is compatible with the local Python version
-        py_version_func = ".".join(function.args[0].python_version.split(".")[:2])
-        app_log.debug(f"Remote Python version: {py_version_func}")
+        self._remote_python_version = ".".join(function.args[0].python_version.split(".")[:2])
+        app_log.debug(f"Remote Python version: {self._remote_python_version}")
 
         # Create the remote directory
         app_log.debug(f"Creating remote work directory: {self._job_remote_workdir}")
@@ -543,34 +571,33 @@ print(state.name)
 
         # Format the function execution script, write to file, and copy to remote filesystem
         async with aiofiles.tempfile.NamedTemporaryFile(dir=self.cache_dir, mode="w") as temp:
-            python_exec_script = self._format_py_script()
+            python_exec_script = self._format_pickle_script()
             app_log.debug("Writing python run-function script to tempfile")
             await temp.write(python_exec_script)
             await temp.flush()
 
             app_log.debug(
-                f"Copying python run-function to remote filesystem: {self._remote_py_script_filepath}"
+                f"Copying python run-function to remote filesystem: {self._remote_pickle_script_filepath}"
             )
-            await asyncssh.scp(temp.name, (conn, self._remote_py_script_filepath))
+            await asyncssh.scp(temp.name, (conn, self._remote_pickle_script_filepath))
 
-        # Make the pre launch file (to activate the Conda environment)
-        if self.remote_conda_env:
-            async with aiofiles.tempfile.NamedTemporaryFile(dir=self.cache_dir, mode="w") as temp:
-                pre_launch_script = f"source activate {self.remote_conda_env}"
-                app_log.debug("Writing pre launch file")
-                await temp.write(pre_launch_script)
-                await temp.flush()
+        # Make the pre launch file
+        async with aiofiles.tempfile.NamedTemporaryFile(dir=self.cache_dir, mode="w") as temp:
+            pre_launch_script = self._format_pre_launch_script()
+            app_log.debug("Writing pre launch file")
+            await temp.write(pre_launch_script)
+            await temp.flush()
 
-                app_log.debug(
-                    f"Copying pre launch script to remote filesystem: {self._remote_pre_launch_filepath}"
-                )
-                await asyncssh.scp(temp.name, (conn, self._remote_pre_launch_filepath))
+            app_log.debug(
+                f"Copying pre launch script to remote filesystem: {self._remote_pre_launch_filepath}"
+            )
+            await asyncssh.scp(temp.name, (conn, self._remote_pre_launch_filepath))
 
-                cmd_chmod = f"chmod +x {self._remote_pre_launch_filepath}"
-                proc_chmod = await conn.run(cmd_chmod)
+            cmd_chmod = f"chmod +x {self._remote_pre_launch_filepath}"
+            proc_chmod = await conn.run(cmd_chmod)
 
-                if client_err := proc_chmod.stderr.strip():
-                    raise RuntimeError(f"Changing permissions failed with file: {proc_chmod}")
+            if client_err := proc_chmod.stderr.strip():
+                raise RuntimeError(f"Changing permissions failed with file: {proc_chmod}")
 
         # ---------------------------------------------------------------------------------------------
         # NOTE: When PSI/J Remote is released, we can do the following server-side instead.
@@ -606,9 +633,9 @@ print(state.name)
             await temp.flush()
 
             app_log.debug(
-                f"Copying PSI/J query status script to remote filesystem: {self._remote_query_status_filepath}"
+                f"Copying PSI/J query status script to remote filesystem: {self._remote_query_script_filepath}"
             )
-            await asyncssh.scp(temp.name, (conn, self._remote_query_status_filepath))
+            await asyncssh.scp(temp.name, (conn, self._remote_query_script_filepath))
 
         app_log.debug(f"Polling job scheduler with job_id: {self._jobid}")
         await self._poll_scheduler(conn)
@@ -648,7 +675,7 @@ print(state.name)
             return Result.NEW_OBJ
 
         proc = await conn.run(
-            f"{self.remote_python_executable} {self._remote_query_status_filepath}"
+            f"{self.remote_python_executable} {self._remote_query_script_filepath}"
         )
 
         if proc.returncode != 0:
@@ -770,8 +797,7 @@ print(state.name)
         Function to perform cleanup on remote machine.
 
         NOTE: When PSI/J Remote is released, the following files will no longer need to be
-        deleted: `self._remote_jobscript_filepath`, `self._remote_query_status_filepath`,
-        `self._remote_pre_launch_filepath`.
+        deleted: `self._remote_jobscript_filepath`, `self._remote_query_script_filepath`.
 
         Args:
             conn: SSH connection object
@@ -782,15 +808,14 @@ print(state.name)
         files_to_remove = (
             [
                 self._remote_func_filepath,
-                self._remote_py_script_filepath,
+                self._remote_pickle_script_filepath,
+                self._remote_pre_launch_filepath,
                 self._remote_jobscript_filepath,
-                self._remote_query_status_filepath,
+                self._remote_query_script_filepath,
                 self._remote_result_filepath,
                 self._remote_stdout_filepath,
                 self._remote_stderr_filepath,
             ],
         )
-        if self._remote_pre_launch_filepath:
-            files_to_remove.append(self._remote_pre_launch_filepath)
         for f in files_to_remove:
             await conn.run(f"rm {f}")
