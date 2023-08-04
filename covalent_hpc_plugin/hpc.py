@@ -732,6 +732,7 @@ fi
         # ```python
         # if status != "COMPLETED":
         #    raise RuntimeError(f"Job {status} with native ID {self._jobid}.")
+        # ```
         if status == "FAILED":
             raise RuntimeError(f"Job with native ID {self._jobid} failed.")
         elif status == "CANCELED":
