@@ -21,6 +21,7 @@
 """Tests for the SLURM executor plugin."""
 
 import os
+import subprocess
 from copy import deepcopy
 from datetime import timedelta
 from functools import partial
@@ -28,6 +29,7 @@ from pathlib import Path
 from unittest import mock
 
 import aiofiles
+import cloudpickle as pickle
 import pytest
 from covalent._results_manager.result import Result
 from covalent._shared_files.config import get_config, set_config
@@ -144,223 +146,154 @@ def test_init(tmpdir):
     assert executor.poll_freq == 30
 
 
-# def test_failed_init():
-#     """Test for failed inits"""
+def test_removed_inits(tmpdir):
+    """Test for removed inits"""
 
-#     start_config = deepcopy(get_config())
-#     for key in ["cert_file", "slurm_path", "conda_env", "bashrc_path", "sshproxy", "srun_append"]:
-#         config = get_config()
-#         config["executors"]["slurm"].pop(key, None)
-#         set_config(config)
-#         executor = SlurmExecutor(username="username", address="host", ssh_key_file=SSH_KEY_FILE)
-#         assert not executor.__dict__[key]
-#         set_config(start_config)
-
-
-# def test_format_py_script():
-#     """Test that the python script (in string form) which is to be executed (via srun)
-#     on the remote server is created with no errors."""
-
-#     executor_0 = SlurmExecutor(
-#         username="test_user",
-#         address="test_address",
-#         ssh_key_file=SSH_KEY_FILE,
-#         cert_file=CERT_FILE,
-#         remote_workdir="/federation/test_user/.cache/covalent",
-#         options={},
-#         cache_dir="~/.cache/covalent",
-#         poll_freq=60,
-#     )
-
-#     dispatch_id = "148dedae-1b58-3870-z08d-db89bceec915"
-#     task_id = 2
-#     func_filename = f"func-{dispatch_id}-{task_id}.pkl"
-#     result_filename = f"result-{dispatch_id}-{task_id}.pkl"
-
-#     try:
-#         py_script_str = executor_0._format_py_script(func_filename, result_filename)
-#         print(py_script_str)
-#     except Exception as exc:
-#         assert False, f"Exception while running _format_py_script: {exc}"
-#     assert func_filename in py_script_str
-#     assert result_filename in py_script_str
+    tmpdir.chdir()
+    start_config = deepcopy(get_config())
+    for key in ["cert_file", "remote_conda_env"]:
+        config = get_config()
+        config["executors"]["hpc"].pop(key, None)
+        set_config(config)
+        executor = HPCExecutor(address="host")
+        assert not executor.__dict__[key]
+        set_config(start_config)
 
 
-# def test_format_submit_script_default():
-#     """Test that the shell script (in string form) which is to be submitted on
-#     the remote server is created with no errors."""
+def test_format_pickle_script(tmpdir):
+    """Test that the python script (in string form) for the pickle function is as-expected"""
 
-#     remote_workdir = "/federation/test_user/.cache/covalent"
-#     executor_0 = SlurmExecutor(
-#         username="test_user",
-#         address="test_address",
-#         ssh_key_file="~/.ssh/id_rsa",
-#         remote_workdir=remote_workdir,
-#         cache_dir="~/.cache/covalent",
-#         poll_freq=60,
-#     )
+    tmpdir.chdir()
 
-#     def simple_task(x):
-#         return x
+    executor_0 = HPCExecutor(
+        username="test_user",
+        address="test_address",
+        ssh_key_file=SSH_KEY_FILE,
+        cert_file=CERT_FILE,
+        remote_workdir="/federation/test_user/.cache/covalent",
+        cache_dir="~/.cache/covalent",
+    )
 
-#     transport_function = partial(
-#         wrapper_fn, TransportableObject(simple_task), [], [], TransportableObject(5)
-#     )
-#     python_version = ".".join(transport_function.args[0].python_version.split(".")[:2])
+    dispatch_id = "148dedae-1b58-3870-z08d-db89bceec915"
+    task_id = 2
+    func_filename = f"func-{dispatch_id}-{task_id}.pkl"
+    result_filename = f"result-{dispatch_id}-{task_id}.pkl"
+    executor_0._remote_func_filepath = func_filename
+    executor_0._remote_result_filepath = result_filename
 
-#     dispatch_id = "259efebf-2c69-4981-a19e-ec90cdffd026"
-#     task_id = 3
-#     py_filename = f"script-{dispatch_id}-{task_id}.py"
-
-#     try:
-#         submit_script_str = executor_0._format_submit_script(
-#             python_version, py_filename, remote_workdir
-#         )
-#         print(submit_script_str)
-#     except Exception as exc:
-#         assert False, f"Exception while running _format_submit_script with default options: {exc}"
-#     assert python_version in submit_script_str
-
-#     shebang = "#!/bin/bash\n"
-#     assert submit_script_str.startswith(
-#         shebang
-#     ), f"Missing '{shebang[:-1]}' in sbatch shell script"
-#     assert "conda" not in submit_script_str
-#     assert "source $HOME/.bashrc" in submit_script_str
-#     assert "srun" in submit_script_str
-#     assert "--chdir=" + remote_workdir in submit_script_str
+    py_script_str = executor_0._format_pickle_script()
+    assert func_filename in py_script_str
+    assert result_filename in py_script_str
 
 
-# def test_format_submit_script():
-#     """Test that the shell script (in string form) which is to be submitted on
-#     the remote server is created with no errors."""
+def test_pickle_script(tmpdir):
+    """Test pickle script works appropriately"""
+    tmpdir.chdir()
 
-#     remote_workdir = "/scratch/user/experiment1"
-#     executor_1 = SlurmExecutor(
-#         username="test_user",
-#         address="test_address",
-#         ssh_key_file="~/.ssh/id_rsa",
-#         remote_workdir=remote_workdir,
-#         create_unique_workdir=True,
-#         conda_env="my-conda-env",
-#         bashrc_path="$HOME/.newbashrc",
-#         options={"nodes": 1, "c": 8, "qos": "regular"},
-#         srun_options={"slurmd-debug": 4, "n": 12, "cpu_bind": "cores"},
-#         srun_append="nsys profile --stats=true -t cuda --gpu-metrics-device=all",
-#         prerun_commands=[
-#             "module load package/1.2.3",
-#             "srun --ntasks-per-node 1 dcgmi profile --pause",
-#         ],
-#         postrun_commands=[
-#             "srun --ntasks-per-node 1 dcgmi profile --resume",
-#             "python ./path/to/my/post_process.py -j $SLURM_JOB_ID",
-#         ],
-#     )
+    def test_func(a, b="default"):
+        return f"{a} {b}"
 
-#     def simple_task(x):
-#         return x
+    executor_0 = HPCExecutor(username="test_user", address="test_address")
+    dispatch_id = "148dedae-1b58-3870-z08d-db89bceec915"
+    task_id = 2
+    func_filename = tmpdir / f"func-{dispatch_id}-{task_id}.pkl"
+    result_filename = tmpdir / f"result-{dispatch_id}-{task_id}.pkl"
+    executor_0._remote_func_filepath = func_filename
+    pickle.dump([test_func, {"hello"}, {"b": "world"}], open(func_filename, "wb"))
+    executor_0._remote_result_filepath = result_filename
 
-#     transport_function = partial(
-#         wrapper_fn, TransportableObject(simple_task), [], [], TransportableObject(5)
-#     )
-#     python_version = ".".join(transport_function.args[0].python_version.split(".")[:2])
-
-#     dispatch_id = "259efebf-2c69-4981-a19e-ec90cdffd026"
-#     task_id = 3
-#     py_filename = f"script-{dispatch_id}-{task_id}.py"
-#     current_remote_workdir = os.path.join(remote_workdir, dispatch_id, "node_" + str(task_id))
-#     try:
-#         submit_script_str = executor_1._format_submit_script(
-#             python_version, py_filename, current_remote_workdir
-#         )
-#         print(submit_script_str)
-#     except Exception as exc:
-#         assert False, f"Exception while running _format_submit_script: {exc}"
-#     assert "conda activate my-conda-env" in submit_script_str
-#     for prerun_command in executor_1.prerun_commands:
-#         assert prerun_command in submit_script_str
-#     for postrun_command in executor_1.postrun_commands:
-#         assert postrun_command in submit_script_str
-#     assert "--chdir=" + current_remote_workdir in submit_script_str
-#     assert "source $HOME/.newbashrc" in submit_script_str
+    py_script_str = executor_0._format_pickle_script()
+    with open("test.py", "w") as w:
+        w.write(py_script_str)
+    p = subprocess.run(
+        "python test.py", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    assert p.returncode == 0
+    assert p.stderr == b""
+    assert os.path.exists(result_filename)
+    pickle_load = pickle.load(open(result_filename, "rb"))
+    assert pickle_load[0] == "hello world"
+    assert pickle_load[1] == None
 
 
-# def test_format_submit_script_no_srun():
-#     """Test that the shell script (in string form) which is to be submitted on
-#     the remote server is created with no errors with no srun."""
+def test_format_submit_script_default(tmpdir):
+    """Test that the shell script (in string form) which is to be submitted on
+    the remote server is created with no errors."""
 
-#     remote_workdir = "/scratch/user/experiment1"
-#     executor_1 = SlurmExecutor(
-#         username="test_user",
-#         address="test_address",
-#         ssh_key_file="~/.ssh/id_rsa",
-#         remote_workdir=remote_workdir,
-#         conda_env="my-conda-env",
-#         options={"nodes": 1, "c": 8, "qos": "regular"},
-#         use_srun=False,
-#     )
+    tmpdir.chdir()
 
-#     def simple_task(x):
-#         return x
+    remote_workdir = "/federation/test_user/.cache/covalent"
+    executor_0 = HPCExecutor(
+        username="test_user",
+        address="test_address",
+        ssh_key_file="~/.ssh/id_rsa",
+        remote_workdir=remote_workdir,
+        remote_python_executable="python3",
+        environment={"hello": "world"},
+        launcher="srun",
+        resource_spec_kwargs={"node_count": 10},
+        job_attributes_kwargs={"duration": timedelta(minutes=20)},
+        remote_conda_env="myenv",
+    )
 
-#     transport_function = partial(
-#         wrapper_fn, TransportableObject(simple_task), [], [], TransportableObject(5)
-#     )
-#     python_version = ".".join(transport_function.args[0].python_version.split(".")[:2])
+    dispatch_id = "259efebf-2c69-4981-a19e-ec90cdffd026"
+    task_id = 3
+    executor_0._name = f"{dispatch_id}-{task_id}"
+    executor_0._remote_pickle_script_filepath = f"script-{dispatch_id}-{task_id}.py"
+    executor_0._job_remote_workdir = os.getcwd()
+    executor_0._remote_stdout_filepath = f"stdout-{dispatch_id}-{task_id}.log"
+    executor_0._remote_stderr_filepath = f"stderr-{dispatch_id}-{task_id}.log"
+    executor_0._remote_pre_launch_filepath = f"pre-launch-{dispatch_id}-{task_id}.sh"
 
-#     dispatch_id = "259efebf-2c69-4981-a19e-ec90cdffd026"
-#     task_id = 3
-#     py_filename = f"script-{dispatch_id}-{task_id}.py"
+    submit_script_str = executor_0._format_job_script()
 
-#     try:
-#         submit_script_str = executor_1._format_submit_script(
-#             python_version, py_filename, remote_workdir
-#         )
-#         print(submit_script_str)
-#     except Exception as exc:
-#         assert False, f"Exception while running _format_submit_script: {exc}"
-#     assert "conda activate my-conda-env" in submit_script_str
-#     assert "srun" not in submit_script_str
+    assert "JobSpec" in submit_script_str
+    assert f'name="{executor_0._name}"' in submit_script_str
+    assert f'executable="python3"' in submit_script_str
+    assert (
+        "directory=" in submit_script_str and executor_0._job_remote_workdir in submit_script_str
+    )
+    assert "environment={'hello': 'world'}" in submit_script_str
+    assert (
+        "stdout_path=" in submit_script_str
+        and executor_0._remote_stdout_filepath in submit_script_str
+    )
+    assert (
+        "stderr_path=" in submit_script_str
+        and executor_0._remote_stderr_filepath in submit_script_str
+    )
+    assert 'launcher="srun"' in submit_script_str
+    assert "resources=ResourceSpecV1(**{'node_count': 10})" in submit_script_str
+    assert (
+        "attributes=JobAttributes(**{'duration': datetime.timedelta(seconds=1200)})"
+        in submit_script_str
+    )
+    assert (
+        "pre_launch=" in submit_script_str
+        and executor_0._remote_pre_launch_filepath in submit_script_str
+    )
 
+    remote_workdir = "/federation/test_user/.cache/covalent"
+    executor_0 = HPCExecutor(
+        username="test_user",
+        address="test_address",
+        resource_spec_kwargs={},
+        job_attributes_kwargs={},
+    )
 
-# def test_format_submit_script_no_conda():
-#     """Test that the shell script (in string form) which is to be submitted on
-#     the remote server is created with no errors with no Conda."""
+    dispatch_id = "259efebf-2c69-4981-a19e-ec90cdffd026"
+    task_id = 3
+    executor_0._name = f"{dispatch_id}-{task_id}"
+    executor_0._remote_pickle_script_filepath = f"script-{dispatch_id}-{task_id}.py"
+    executor_0._job_remote_workdir = os.getcwd()
+    executor_0._remote_stdout_filepath = f"stdout-{dispatch_id}-{task_id}.log"
+    executor_0._remote_stderr_filepath = f"stderr-{dispatch_id}-{task_id}.log"
+    executor_0._remote_pre_launch_filepath = f"pre-launch-{dispatch_id}-{task_id}.sh"
 
-#     remote_workdir = "/federation/test_user/.cache/covalent"
-#     executor_2 = SlurmExecutor(
-#         username="test_user",
-#         address="test_address",
-#         ssh_key_file="~/.ssh/id_rsa",
-#         conda_env="",
-#         bashrc_path="",
-#         remote_workdir=remote_workdir,
-#         poll_freq=60,
-#         cache_dir="~/.cache/covalent",
-#     )
-
-#     def simple_task(x):
-#         return x
-
-#     transport_function = partial(
-#         wrapper_fn, TransportableObject(simple_task), [], [], TransportableObject(5)
-#     )
-#     python_version = ".".join(transport_function.args[0].python_version.split(".")[:2])
-
-#     dispatch_id = "259efebf-2c69-4981-a19e-ec90cdffd026"
-#     task_id = 3
-#     py_filename = f"script-{dispatch_id}-{task_id}.py"
-
-#     try:
-#         submit_script_str = executor_2._format_submit_script(
-#             python_version, py_filename, remote_workdir
-#         )
-#         print(submit_script_str)
-#     except Exception as exc:
-#         assert False, f"Exception while running _format_submit_script with default options: {exc}"
-
-#     assert "conda" not in submit_script_str
-#     assert "source" not in submit_script_str
+    submit_script_str = executor_0._format_job_script()
+    assert "resources" not in submit_script_str
+    assert "attributes" not in submit_script_str
+    assert "pre_launch" not in submit_script_str
 
 
 # @pytest.mark.asyncio
@@ -769,5 +702,6 @@ def test_init(tmpdir):
 #     with patch_ccs, patch_qrs, patch_pc:
 #         mocker.patch("asyncssh.scp", return_value=mock.AsyncMock())
 #         await executor.run(*dummy_args)
+#         await executor.teardown(dummy_metadata)
 #         await executor.teardown(dummy_metadata)
 #         await executor.teardown(dummy_metadata)
