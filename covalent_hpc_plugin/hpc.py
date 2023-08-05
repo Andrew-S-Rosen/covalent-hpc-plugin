@@ -503,6 +503,8 @@ fi
         elif self.ssh_key_file:
             self.ssh_key_file = Path(self.ssh_key_file).expanduser().resolve()
             client_keys = asyncssh.read_private_key(self.ssh_key_file)
+        else:
+            client_keys = []
 
         # Connect to the remote host
         try:
@@ -730,21 +732,8 @@ fi
             await asyncio.sleep(self.poll_freq)
             status = await self.get_status(conn)
 
-        # NOTE: When https://github.com/ExaWorks/psij-python/issues/399 is resolved,
-        # we can remove the `FAILED` and `CANCELED` checks to instead be:
-        # ```python
-        # if status != "COMPLETED":
-        #    raise RuntimeError(f"Job {status} with native ID {self._jobid}.")
-        # ```
-        if status == "FAILED":
-            raise RuntimeError(f"Job with native ID {self._jobid} failed.")
-        elif status == "CANCELED":
-            raise RuntimeError(f"Job with native ID {self._jobid} cancelled.")
-        elif status == "NEW":
-            # NOTE: This should never happen, but we include it here just in case.
-            raise RuntimeError(
-                f"Job with native ID {self._jobid} was not found. State is unknown."
-            )
+        if status != "COMPLETED":
+            raise RuntimeError(f"Status for job with native ID {self._jobid}: {status}.")
 
     async def _fetch_result(
         self,
