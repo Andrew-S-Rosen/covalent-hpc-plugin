@@ -1,4 +1,4 @@
-aiofiles==0.8.0
+aiofiles==23.1.0
 asyncssh==2.13.2
 black==23.7.0
 cloudpickle==2.0.0
