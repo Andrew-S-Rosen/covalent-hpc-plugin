@@ -373,27 +373,29 @@ def test_query_script(tmpdir):
     assert "ACTIVE" in p.stdout.decode()
 
 
-# def test_query_script(tmpdir):
-#     tmpdir.chdir()
+def test_format_pre_launch_script(tmpdir):
+    tmpdir.chdir()
 
-#     executor = HPCExecutor(
-#         username="test_user",
-#         address="test_address",
-#         instance="local",
-#     )
+    executor = HPCExecutor(
+        username="test_user",
+        address="test_address",
+        instance="flux",
+    )
 
-#     executor._jobid = "123456"
-#     query_str = executor._format_query_status_script()
-#     assert f'JobExecutor.get_instance("local")' in query_str
-#     with open("test_submit.py", "w") as w:
-#         w.write(query_str)
-#     p = subprocess.run(
-#         "python test_submit.py", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-#     )
-#     assert p.returncode == 0
-#     assert p.stderr == b""
-#     assert p.stdout == b""
+    executor._remote_python_version = "3.8.5"
 
+    pre_launch_str = executor._format_pre_launch_script()
+    assert "3.8.5" in pre_launch_str
+    assert "source activate" not in pre_launch_str
+
+    executor = HPCExecutor(
+        username="test_user", address="test_address", instance="flux", remote_conda_env="myenv"
+    )
+    executor._remote_python_version = "3.8.5"
+
+    pre_launch_str = executor._format_pre_launch_script()
+    assert "3.8.5" in pre_launch_str
+    assert "source activate myenv" in pre_launch_str
 
 # @pytest.mark.asyncio
 # async def test_failed_submit_script(mocker, conn_mock):
