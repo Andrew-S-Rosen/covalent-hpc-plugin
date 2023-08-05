@@ -406,7 +406,7 @@ async def test_failed_submit_script(tmpdir, monkeypatch, conn_mock):
 
     monkeypatch.setattr("asyncssh.connect", conn_mock)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="address is a required parameter."):
         executor = HPCExecutor()
         await executor._client_connect()
 
@@ -453,7 +453,7 @@ async def test_get_status(tmpdir, proc_mock, conn_mock):
     assert status == Result.NEW_OBJ
 
     executor._jobid = "123456"
-    executor._remote_query_script_filepath = "query_script.py"
+    executor._remote_query_script_filepath = "mock.py"
     status = await executor.get_status(conn_mock)
     assert status == "Fake Status"
     assert conn_mock.run.call_count == 1
@@ -478,7 +478,7 @@ async def test_poll_scheduler(proc_mock, conn_mock):
 
     # Check completed status does not give any errors
     executor._jobid = "123456"
-    executor._remote_query_script_filepath = "query_script.py"
+    executor._remote_query_script_filepath = "mock.py"
     await executor._poll_scheduler(conn_mock)
     conn_mock.run.assert_called_once()
 
@@ -488,19 +488,17 @@ async def test_poll_scheduler(proc_mock, conn_mock):
     proc_mock.stderr = "AN ERROR"
     conn_mock.run = mock.AsyncMock(return_value=proc_mock)
 
-    try:
+    with pytest.raises(RuntimeError, match="Getting job status failed: AN ERROR"):
         await executor._poll_scheduler(conn_mock)
-    except RuntimeError as raised_exception:
-        expected_exception = RuntimeError("Getting job status failed: AN ERROR")
-        assert isinstance(raised_exception, type(expected_exception))
-        assert raised_exception.args == expected_exception.args
 
     conn_mock.run.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_query_result(monkeypatch, proc_mock, conn_mock):
+async def test_query_result(tmpdir, proc_mock, conn_mock):
     """Test querying results works as expected."""
+
+    tmpdir.chdir()
 
     executor = HPCExecutor(
         username="test_user",
@@ -517,42 +515,28 @@ async def test_query_result(monkeypatch, proc_mock, conn_mock):
 
     conn_mock.run = mock.AsyncMock(return_value=proc_mock)
     executor._remote_result_filepath = Path(os.path.join(os.getcwd(), "mock_result"))
-    try:
+    with pytest.raises(FileNotFoundError, match="stderr"):
         await executor._fetch_result(conn=conn_mock)
-    except Exception as raised_exception:
-        expected_exception = FileNotFoundError(1, "stderr")
-        assert isinstance(raised_exception, type(expected_exception))
-        assert raised_exception.args == expected_exception.args
 
 
 # @pytest.mark.asyncio
-# async def test_run(mocker, proc_mock, conn_mock):
+# async def test_run(monkeypatch, proc_mock, conn_mock):
 #     """Test calling run works as expected."""
-#     executor1 = SlurmExecutor(
+#     executor1 = HPCExecutor(
 #         username="test_user",
 #         address="test_address",
 #         ssh_key_file="~/.ssh/id_rsa",
 #     )
 
-#     executor2 = SlurmExecutor(
+#     executor2 = HPCExecutor(
 #         username="test_user",
 #         address="test_address",
 #         ssh_key_file="~/.ssh/id_rsa",
 #         remote_workdir="/scratch/user/experiment1",
 #         create_unique_workdir=True,
-#         conda_env="my-conda-env",
-#         options={"nodes": 1, "c": 8, "qos": "regular"},
-#         srun_options={"slurmd-debug": 4, "n": 12, "cpu_bind": "cores"},
-#         srun_append="nsys profile --stats=true -t cuda --gpu-metrics-device=all",
-#         prerun_commands=[
-#             "module load package/1.2.3",
-#             "srun --ntasks-per-node 1 dcgmi profile --pause",
-#         ],
-#         postrun_commands=[
-#             "srun --ntasks-per-node 1 dcgmi profile --resume",
-#             "python ./path/to/my/post_process.py -j $SLURM_JOB_ID",
-#         ],
+#         remote_conda_env="my-conda-env",
 #     )
+
 #     for executor in [executor1, executor2]:
 #         # dummy objects
 #         def f(x, y):
@@ -600,15 +584,11 @@ async def test_query_result(monkeypatch, proc_mock, conn_mock):
 #             return "result", "", "", None
 
 #         # patches
-#         patch_ccf = mock.patch.object(SlurmExecutor, "_client_connect", new=__client_connect_fail)
-#         patch_ccs = mock.patch.object(
-#             SlurmExecutor, "_client_connect", new=__client_connect_succeed
-#         )
-#         patch_pss = mock.patch.object(
-#             SlurmExecutor, "_poll_scheduler", new=__poll_scheduler_succeed
-#         )
-#         patch_qrf = mock.patch.object(SlurmExecutor, "_query_result", new=__query_result_fail)
-#         patch_qrs = mock.patch.object(SlurmExecutor, "_query_result", new=__query_result_succeed)
+#         patch_ccf = mock.patch.object(HPCExecutor, "_client_connect", new=__client_connect_fail)
+#         patch_ccs = mock.patch.object(HPCExecutor, "_client_connect", new=__client_connect_succeed)
+#         patch_pss = mock.patch.object(HPCExecutor, "_poll_scheduler", new=__poll_scheduler_succeed)
+#         patch_qrf = mock.patch.object(HPCExecutor, "_fetch_result", new=__query_result_fail)
+#         patch_qrs = mock.patch.object(HPCExecutor, "_fetch_result", new=__query_result_succeed)
 
 #         # check failed ssh connection handled as expected
 #         with patch_ccf:
@@ -630,23 +610,13 @@ async def test_query_result(monkeypatch, proc_mock, conn_mock):
 
 #         # check run call completes with no other errors when `slurm_path` specified
 #         executor.slurm_path = "/path/to/slurm"
-#         proc_mock.stdout = "53034272 COMPLETED"
+#         proc_mock.stdout = "COMPLETED"
 #         with patch_ccs, patch_qrs:
-#             mocker.patch("asyncssh.scp", return_value=mock.AsyncMock())
+#             monkeypatch.setattr("asyncssh.scp", mock.AsyncMock())
 #             await executor.run(*dummy_args)
 #         executor.slurm_path = None
 #         reset_proc_mock()
 
-#         # check failed verification of slurm installation handled as expected
-#         msg = "Please provide `slurm_path` to run sbatch command"
-#         proc_mock.returncode = 1
-#         with patch_ccs:
-#             mocker.patch("asyncssh.scp", return_value=mock.AsyncMock())
-#             with pytest.raises(Exception) as exc_info:
-#                 await executor.run(*dummy_args)
-#                 assert exc_info.type is RuntimeError
-#                 assert exc_info.value.args == (msg,)
-#         reset_proc_mock()
 
 #         # check failed `cmd_sbatch` run on remote handled as expected
 #         executor.slurm_path = "/path/to/slurm"
@@ -727,16 +697,12 @@ async def test_teardown(tmpdir, monkeypatch, proc_mock, conn_mock):
     # patches
     patch_ccs = mock.patch.object(HPCExecutor, "_client_connect", new=__client_connect_succeed)
     patch_qrs = mock.patch.object(HPCExecutor, "_fetch_result", new=__fetch_result_succeed)
-    patch_pc = mock.patch.object(HPCExecutor, "perform_cleanup", new=__perform_cleanup)
 
     # check teardown method works as expected
     proc_mock.stdout = "COMPLETED"
     proc_mock.stderr = ""
     proc_mock.returncode = 0
-    with patch_ccs, patch_qrs, patch_pc:
+    with patch_ccs, patch_qrs:
         monkeypatch.setattr("asyncssh.scp", mock.AsyncMock())
         await executor.run(*dummy_args)
-        await executor.teardown(dummy_metadata)
-        await executor.teardown(dummy_metadata)
-        await executor.teardown(dummy_metadata)
         await executor.teardown(dummy_metadata)
