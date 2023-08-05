@@ -28,7 +28,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-          cache-dependency-path: pyproject.toml
+          cache-dependency-path: setup.py
 
       - name: Install pip packages
         run: |
@@ -41,7 +41,7 @@ jobs:
           covalent start
 
       - name: Run tests with pytest
-        run: pytest --cov=cov-hpc-plugin --cov-report=xml
+        run: pytest --cov=covalent-hpc-plugin --cov-report=xml
 
       - name: Stop Covalent server
         run: covalent stop
