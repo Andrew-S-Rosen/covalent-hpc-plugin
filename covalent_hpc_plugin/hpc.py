@@ -23,9 +23,9 @@
 from __future__ import annotations
 
 import asyncio
+import datetime
 import os
 import sys
-from datetime import timedelta
 from pathlib import Path
 from typing import Literal, TypedDict
 
@@ -104,7 +104,7 @@ class JobAttributesHint(TypedDict):
     Reference: https://exaworks.org/psij-python/docs/v/0.9.0/.generated/psij.html#psij.JobAttributes
     """
 
-    duration: timedelta | int
+    duration: datetime.timedelta | int
     queue_name: str | None
     project_name: str | None
     reservation_id: str | None
@@ -126,7 +126,7 @@ class HPCExecutor(AsyncBaseExecutor):
         cert_file: Certificate file used to authenticate over SSH, if required (usually has extension .pub).
             The default is None. If no certificate is required, leave this as None.
         instance: The PSI/J `JobExecutor` instance (i.e. job scheduler) to use for job submission.
-            Must be one of: "cobalt", "flux", "local", "lsf", "pbspro", "rp", "slurm". Defaults to "slurm".
+            Must be one of: "cobalt", "flux", "lsf", "pbspro", "rp", "slurm". Defaults to "slurm".
         launcher: The PSI/J `JobSpec` launcher to use for the job.
             Must be one of: "aprun", "jsrun", "mpirun", "multiple", "single", "srun". Defaults to "single".
         resource_spec_kwargs: The PSI/J keyword arguments for `ResourceSpecV1`, which describes the resources to
@@ -159,7 +159,7 @@ class HPCExecutor(AsyncBaseExecutor):
         ssh_key_file: str | Path | None = _DEFAULT,
         cert_file: str | Path | None = _DEFAULT,
         # PSI/J parameters
-        instance: Literal["cobalt", "flux", "local", "lsf", "pbspro", "rp", "slurm"] = _DEFAULT,
+        instance: Literal["cobalt", "flux", "lsf", "pbspro", "rp", "slurm"] = _DEFAULT,
         launcher: Literal["aprun", "jsrun", "mpirun", "multiple", "single", "srun"] = _DEFAULT,
         resource_spec_kwargs: ResourceSpecV1Hint = _DEFAULT,
         job_attributes_kwargs: JobAttributesHint = _DEFAULT,
@@ -252,7 +252,7 @@ class HPCExecutor(AsyncBaseExecutor):
             else _EXECUTOR_PLUGIN_DEFAULTS["job_attributes_kwargs"]
         )
         if isinstance(self.job_attributes_kwargs.get("duration"), int):
-            self.job_attributes_kwargs["duration"] = timedelta(
+            self.job_attributes_kwargs["duration"] = datetime.timedelta(
                 minutes=self.job_attributes_kwargs["duration"]
             )
 
@@ -384,6 +384,7 @@ with open(Path("{self._remote_result_filepath}").expanduser().resolve(), "wb") a
         )
 
         return f"""
+import datetime
 from pathlib import Path
 from psij import Job, JobAttributes, JobExecutor, JobSpec, ResourceSpecV1
 
@@ -427,7 +428,7 @@ print(job.native_id)
         # we can remove the `timeout` argument and set `state = job_status.state`.
 
         return f"""
-from datetime import timedelta
+import datetime
 from psij import Job, JobExecutor, JobState
 
 job_executor = JobExecutor.get_instance("{self.instance}")
@@ -442,7 +443,7 @@ job_status = job.wait(
         JobState.FAILED,
         JobState.COMPLETED,
     ],
-    timeout = timedelta(seconds=10),
+    timeout = datetime.timedelta(seconds=10),
 )
 state = job_status.state or JobState.COMPLETED
 print(state.name)
@@ -472,8 +473,8 @@ fi
         pre_launch_script += f"""
 remote_py_version=$(python -c "print('.'.join(map(str, __import__('sys').version_info[:2])))")
 if [[ "{self._remote_python_version}" != $remote_py_version ]] ; then
->&2 echo "Python version mismatch. Please install Python {self._remote_python_version} in the compute environment."
-exit 199
+    >&2 echo "Python version mismatch. Please install Python {self._remote_python_version} in the compute environment."
+    exit 199
 fi
 """
         return pre_launch_script

@@ -165,7 +165,7 @@ def test_format_pickle_script(tmpdir):
 
     tmpdir.chdir()
 
-    executor_0 = HPCExecutor(
+    executor = HPCExecutor(
         username="test_user",
         address="test_address",
         ssh_key_file=SSH_KEY_FILE,
@@ -178,10 +178,10 @@ def test_format_pickle_script(tmpdir):
     task_id = 2
     func_filename = f"func-{dispatch_id}-{task_id}.pkl"
     result_filename = f"result-{dispatch_id}-{task_id}.pkl"
-    executor_0._remote_func_filepath = func_filename
-    executor_0._remote_result_filepath = result_filename
+    executor._remote_func_filepath = func_filename
+    executor._remote_result_filepath = result_filename
 
-    py_script_str = executor_0._format_pickle_script()
+    py_script_str = executor._format_pickle_script()
     assert func_filename in py_script_str
     assert result_filename in py_script_str
 
@@ -193,16 +193,16 @@ def test_pickle_script(tmpdir):
     def test_func(a, b="default"):
         return f"{a} {b}"
 
-    executor_0 = HPCExecutor(username="test_user", address="test_address")
+    executor = HPCExecutor(username="test_user", address="test_address")
     dispatch_id = "148dedae-1b58-3870-z08d-db89bceec915"
     task_id = 2
     func_filename = tmpdir / f"func-{dispatch_id}-{task_id}.pkl"
     result_filename = tmpdir / f"result-{dispatch_id}-{task_id}.pkl"
-    executor_0._remote_func_filepath = func_filename
+    executor._remote_func_filepath = func_filename
     pickle.dump([test_func, {"hello"}, {"b": "world"}], open(func_filename, "wb"))
-    executor_0._remote_result_filepath = result_filename
+    executor._remote_result_filepath = result_filename
 
-    py_script_str = executor_0._format_pickle_script()
+    py_script_str = executor._format_pickle_script()
     with open("test.py", "w") as w:
         w.write(py_script_str)
     p = subprocess.run(
@@ -216,14 +216,14 @@ def test_pickle_script(tmpdir):
     assert pickle_load[1] == None
 
 
-def test_format_submit_script_default(tmpdir):
+def test_format_submit_script(tmpdir):
     """Test that the shell script (in string form) which is to be submitted on
     the remote server is created with no errors."""
 
     tmpdir.chdir()
 
     remote_workdir = "/federation/test_user/.cache/covalent"
-    executor_0 = HPCExecutor(
+    executor = HPCExecutor(
         username="test_user",
         address="test_address",
         ssh_key_file="~/.ssh/id_rsa",
@@ -238,29 +238,27 @@ def test_format_submit_script_default(tmpdir):
 
     dispatch_id = "259efebf-2c69-4981-a19e-ec90cdffd026"
     task_id = 3
-    executor_0._name = f"{dispatch_id}-{task_id}"
-    executor_0._remote_pickle_script_filepath = f"script-{dispatch_id}-{task_id}.py"
-    executor_0._job_remote_workdir = os.getcwd()
-    executor_0._remote_stdout_filepath = f"stdout-{dispatch_id}-{task_id}.log"
-    executor_0._remote_stderr_filepath = f"stderr-{dispatch_id}-{task_id}.log"
-    executor_0._remote_pre_launch_filepath = f"pre-launch-{dispatch_id}-{task_id}.sh"
+    executor._name = f"{dispatch_id}-{task_id}"
+    executor._remote_pickle_script_filepath = f"script-{dispatch_id}-{task_id}.py"
+    executor._job_remote_workdir = tmpdir
+    executor._remote_stdout_filepath = f"stdout-{dispatch_id}-{task_id}.log"
+    executor._remote_stderr_filepath = f"stderr-{dispatch_id}-{task_id}.log"
+    executor._remote_pre_launch_filepath = f"pre-launch-{dispatch_id}-{task_id}.sh"
 
-    submit_script_str = executor_0._format_job_script()
+    submit_script_str = executor._format_job_script()
 
     assert "JobSpec" in submit_script_str
-    assert f'name="{executor_0._name}"' in submit_script_str
+    assert f'name="{executor._name}"' in submit_script_str
     assert f'executable="python3"' in submit_script_str
-    assert (
-        "directory=" in submit_script_str and executor_0._job_remote_workdir in submit_script_str
-    )
+    assert "directory=" in submit_script_str and executor._job_remote_workdir in submit_script_str
     assert "environment={'hello': 'world'}" in submit_script_str
     assert (
         "stdout_path=" in submit_script_str
-        and executor_0._remote_stdout_filepath in submit_script_str
+        and executor._remote_stdout_filepath in submit_script_str
     )
     assert (
         "stderr_path=" in submit_script_str
-        and executor_0._remote_stderr_filepath in submit_script_str
+        and executor._remote_stderr_filepath in submit_script_str
     )
     assert 'launcher="srun"' in submit_script_str
     assert "resources=ResourceSpecV1(**{'node_count': 10})" in submit_script_str
@@ -270,11 +268,11 @@ def test_format_submit_script_default(tmpdir):
     )
     assert (
         "pre_launch=" in submit_script_str
-        and executor_0._remote_pre_launch_filepath in submit_script_str
+        and executor._remote_pre_launch_filepath in submit_script_str
     )
 
     remote_workdir = "/federation/test_user/.cache/covalent"
-    executor_0 = HPCExecutor(
+    executor = HPCExecutor(
         username="test_user",
         address="test_address",
         resource_spec_kwargs={},
@@ -283,17 +281,98 @@ def test_format_submit_script_default(tmpdir):
 
     dispatch_id = "259efebf-2c69-4981-a19e-ec90cdffd026"
     task_id = 3
-    executor_0._name = f"{dispatch_id}-{task_id}"
-    executor_0._remote_pickle_script_filepath = f"script-{dispatch_id}-{task_id}.py"
-    executor_0._job_remote_workdir = os.getcwd()
-    executor_0._remote_stdout_filepath = f"stdout-{dispatch_id}-{task_id}.log"
-    executor_0._remote_stderr_filepath = f"stderr-{dispatch_id}-{task_id}.log"
-    executor_0._remote_pre_launch_filepath = f"pre-launch-{dispatch_id}-{task_id}.sh"
+    executor._name = f"{dispatch_id}-{task_id}"
+    executor._remote_pickle_script_filepath = f"script-{dispatch_id}-{task_id}.py"
+    executor._job_remote_workdir = tmpdir
+    executor._remote_stdout_filepath = f"stdout-{dispatch_id}-{task_id}.log"
+    executor._remote_stderr_filepath = f"stderr-{dispatch_id}-{task_id}.log"
+    executor._remote_pre_launch_filepath = f"pre-launch-{dispatch_id}-{task_id}.sh"
 
-    submit_script_str = executor_0._format_job_script()
+    submit_script_str = executor._format_job_script()
     assert "resources" not in submit_script_str
     assert "attributes" not in submit_script_str
     assert "pre_launch" not in submit_script_str
+
+
+def test_format_submit_script(tmpdir):
+    tmpdir.chdir()
+
+    executor = HPCExecutor(
+        username="test_user",
+        address="test_address",
+        instance="flux",
+    )
+
+    executor._jobid = "123456"
+    query_str = executor._format_query_status_script()
+    assert f'JobExecutor.get_instance("flux")' in query_str
+
+
+def test_submit_script(tmpdir):
+    tmpdir.chdir()
+
+    executor = HPCExecutor(
+        username="test_user",
+        address="test_address",
+        instance="local",
+    )
+    dispatch_id = "259efebf-2c69-4981-a19e-ec90cdffd026"
+    task_id = 3
+    executor._name = f"{dispatch_id}-{task_id}"
+    executor._remote_pickle_script_filepath = f""
+    executor._job_remote_workdir = tmpdir
+    executor._remote_stdout_filepath = f"stdout-{dispatch_id}-{task_id}.log"
+    executor._remote_stderr_filepath = f"stderr-{dispatch_id}-{task_id}.log"
+    executor._remote_pre_launch_filepath = f"pre-launch-{dispatch_id}-{task_id}.sh"
+
+    executor._jobid = "123456"
+    query_str = executor._format_job_script()
+    assert f'JobExecutor.get_instance("local")' in query_str
+
+    with open("test_submit.py", "w") as w:
+        w.write(query_str)
+    p = subprocess.run(
+        "python test_submit.py", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    assert p.returncode == 0
+    assert p.stderr == b""
+    assert p.stdout != b""
+    assert int(p.stdout) > 0
+
+
+def test_format_query_script():
+    executor = HPCExecutor(
+        username="test_user",
+        address="test_address",
+        instance="flux",
+    )
+
+    executor._jobid = "123456"
+    query_str = executor._format_query_status_script()
+    assert f'JobExecutor.get_instance("flux")' in query_str
+    assert f'job_executor.attach(job, "{executor._jobid}")' in query_str
+
+
+# def test_query_script(tmpdir):
+#     tmpdir.chdir()
+
+#     executor = HPCExecutor(
+#         username="test_user",
+#         address="test_address",
+#         instance="local",
+#     )
+
+#     executor._jobid = "123456"
+#     query_str = executor._format_query_status_script()
+#     assert f'JobExecutor.get_instance("local")' in query_str
+#     with open("test_submit.py", "w") as w:
+#         w.write(query_str)
+#     p = subprocess.run(
+#         "python test_submit.py", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+#     )
+#     assert p.returncode == 0
+#     assert p.stderr == b""
+#     assert p.stdout == b""
 
 
 # @pytest.mark.asyncio
@@ -702,6 +781,7 @@ def test_format_submit_script_default(tmpdir):
 #     with patch_ccs, patch_qrs, patch_pc:
 #         mocker.patch("asyncssh.scp", return_value=mock.AsyncMock())
 #         await executor.run(*dummy_args)
+#         await executor.teardown(dummy_metadata)
 #         await executor.teardown(dummy_metadata)
 #         await executor.teardown(dummy_metadata)
 #         await executor.teardown(dummy_metadata)
