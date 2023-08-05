@@ -498,8 +498,8 @@ fi
 
             self.cert_file = Path(self.cert_file).expanduser().resolve()
             client_keys = (
-                asyncssh.read_private_key(self.ssh_key_file),
                 asyncssh.read_certificate(self.cert_file),
+                asyncssh.read_private_key(self.ssh_key_file),
             )
         elif self.ssh_key_file:
             self.ssh_key_file = Path(self.ssh_key_file).expanduser().resolve()
@@ -702,7 +702,7 @@ fi
             status: String describing the job status.
         """
 
-        if self._jobid is None:
+        if not hasattr(self, "_jobid"):
             return Result.NEW_OBJ
 
         proc = await conn.run(
@@ -802,7 +802,7 @@ fi
         try:
             app_log.debug("Performing cleanup on remote...")
             conn = await self._client_connect()
-            await self._perform_cleanup(conn)
+            await self.perform_cleanup(conn)
 
             app_log.debug("Closing SSH connection...")
             conn.close()
@@ -811,7 +811,7 @@ fi
         except Exception:
             app_log.warning("Cleanup could not successfully complete. Nonfatal error.")
 
-    async def _perform_cleanup(self, conn: asyncssh.SSHClientConnection) -> None:
+    async def perform_cleanup(self, conn: asyncssh.SSHClientConnection) -> None:
         """
         Function to perform cleanup on remote machine.
 

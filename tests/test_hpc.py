@@ -24,13 +24,17 @@ import os
 import subprocess
 from copy import deepcopy
 from datetime import timedelta
+from functools import partial
 from pathlib import Path
 from unittest import mock
 
 import aiofiles
 import cloudpickle as pickle
 import pytest
+from covalent._results_manager.result import Result
 from covalent._shared_files.config import get_config, set_config
+from covalent._workflow.transport import TransportableObject
+from covalent.executor.base import wrapper_fn
 
 from covalent_hpc_plugin import HPCExecutor
 
@@ -394,190 +398,131 @@ def test_format_pre_launch_script(tmpdir):
     assert "source activate myenv" in pre_launch_str
 
 
-# @pytest.mark.asyncio
-# async def test_failed_submit_script(mocker, conn_mock):
-#     "Test for expected errors"
+@pytest.mark.asyncio
+async def test_failed_submit_script(tmpdir, monkeypatch, conn_mock):
+    "Test for expected errors"
 
-#     mocker.patch("asyncssh.connect", return_value=conn_mock)
+    tmpdir.chdir()
 
-#     with pytest.raises(FileNotFoundError):
-#         executor = SlurmExecutor(
-#             username="test_user",
-#             address="test_address",
-#             ssh_key_file="/this/file/does/not/exist",
-#             remote_workdir="/federation/test_user/.cache/covalent",
-#             options={},
-#             cache_dir="~/.cache/covalent",
-#             poll_freq=60,
-#         )
-#         await executor._client_connect()
+    monkeypatch.setattr("asyncssh.connect", conn_mock)
 
-#     with pytest.raises(FileNotFoundError):
-#         executor = SlurmExecutor(
-#             username="test_user",
-#             address="test_address",
-#             ssh_key_file=SSH_KEY_FILE,
-#             cert_file="/this/file/does/not/exist",
-#             remote_workdir="/federation/test_user/.cache/covalent",
-#             options={},
-#             cache_dir="~/.cache/covalent",
-#             poll_freq=60,
-#         )
-#         await executor._client_connect()
+    with pytest.raises(ValueError):
+        executor = HPCExecutor()
+        await executor._client_connect()
 
-#     with pytest.raises(ValueError):
-#         executor = SlurmExecutor(address="test_address", ssh_key_file=SSH_KEY_FILE)
-#         await executor._client_connect()
+    with pytest.raises(FileNotFoundError):
+        executor = HPCExecutor(
+            username="test_user",
+            address="test_address",
+            ssh_key_file="/this/file/does/not/exist",
+            remote_workdir="/federation/test_user/.cache/covalent",
+        )
+        await executor._client_connect()
 
-#     with pytest.raises(ValueError):
-#         executor = SlurmExecutor(username="test", ssh_key_file=SSH_KEY_FILE)
-#         await executor._client_connect()
-
-#     with pytest.raises(ValueError):
-#         executor = SlurmExecutor(username="test", address="test_address")
-#         await executor._client_connect()
+    with pytest.raises(FileNotFoundError):
+        executor = HPCExecutor(
+            username="test_user",
+            address="test_address",
+            ssh_key_file=SSH_KEY_FILE,
+            cert_file="/this/file/does/not/exist",
+            remote_workdir="/federation/test_user/.cache/covalent",
+        )
+        await executor._client_connect()
 
 
-# @pytest.mark.asyncio
-# async def test_get_status(proc_mock, conn_mock):
-#     """Test the get_status method."""
+@pytest.mark.asyncio
+async def test_get_status(tmpdir, proc_mock, conn_mock):
+    """Test the get_status method."""
 
-#     executor = SlurmExecutor(
-#         username="test_user",
-#         address="test_address",
-#         ssh_key_file=SSH_KEY_FILE,
-#         remote_workdir="/federation/test_user/.cache/covalent",
-#         options={},
-#         cache_dir="~/.cache/covalent",
-#         poll_freq=60,
-#     )
+    tmpdir.chdir()
 
-#     proc_mock.returncode = 0
-#     proc_mock.stdout = "Fake Status"
-#     proc_mock.stderr = "stderr"
+    executor = HPCExecutor(
+        username="test_user",
+        address="test_address",
+        ssh_key_file=SSH_KEY_FILE,
+        remote_workdir="/federation/test_user/.cache/covalent",
+    )
 
-#     conn_mock.run = mock.AsyncMock(return_value=proc_mock)
+    proc_mock.returncode = 0
+    proc_mock.stdout = "Fake Status"
+    proc_mock.stderr = "stderr"
 
-#     status = await executor.get_status({}, conn_mock)
-#     assert status == Result.NEW_OBJ
+    conn_mock.run = mock.AsyncMock(return_value=proc_mock)
 
-#     status = await executor.get_status({"job_id": 0}, conn_mock)
-#     assert status == "Fake Status"
-#     assert conn_mock.run.call_count == 2
+    status = await executor.get_status(conn_mock)
+    assert status == Result.NEW_OBJ
 
-
-# @pytest.mark.asyncio
-# async def test_poll_scheduler(proc_mock, conn_mock):
-#     """Test that polling the status works."""
-
-#     executor = SlurmExecutor(
-#         username="test_user",
-#         address="test_address",
-#         ssh_key_file=SSH_KEY_FILE,
-#         remote_workdir="/federation/test_user/.cache/covalent",
-#         options={},
-#         slurm_path="sample_path",
-#         cache_dir="~/.cache/covalent",
-#         poll_freq=60,
-#     )
-
-#     proc_mock.returncode = 0
-#     proc_mock.stdout = "COMPLETED"
-#     proc_mock.stderr = "stderr"
-
-#     conn_mock.run = mock.AsyncMock(return_value=proc_mock)
-
-#     # Check completed status does not give any errors
-#     await executor._poll_scheduler(0, conn_mock)
-#     conn_mock.run.assert_called_once()
-
-#     # Now give an "error" in the get_status method and check that the
-#     # correct exception is raised.
-#     proc_mock.returncode = 1
-#     proc_mock.stdout = "AN ERROR"
-#     conn_mock.run = mock.AsyncMock(return_value=proc_mock)
-
-#     try:
-#         await executor._poll_scheduler(0, conn_mock)
-#     except RuntimeError as raised_exception:
-#         expected_exception = RuntimeError("Job failed with status:\n", "AN ERROR")
-#         assert isinstance(raised_exception, type(expected_exception))
-#         assert raised_exception.args == expected_exception.args
-
-#     conn_mock.run.assert_called_once()
+    executor._jobid = "123456"
+    executor._remote_query_script_filepath = "query_script.py"
+    status = await executor.get_status(conn_mock)
+    assert status == "Fake Status"
+    assert conn_mock.run.call_count == 1
 
 
-# @pytest.mark.asyncio
-# async def test_query_result(mocker, proc_mock, conn_mock):
-#     """Test querying results works as expected."""
+@pytest.mark.asyncio
+async def test_poll_scheduler(proc_mock, conn_mock):
+    """Test that polling the status works."""
 
-#     executor = SlurmExecutor(
-#         username="test_user",
-#         address="test_address",
-#         ssh_key_file=SSH_KEY_FILE,
-#         remote_workdir="/federation/test_user/.cache/covalent",
-#         options={"output": "stdout_file", "error": "stderr_file"},
-#         cache_dir="~/.cache/covalent",
-#         poll_freq=60,
-#     )
+    executor = HPCExecutor(
+        username="test_user",
+        address="test_address",
+        ssh_key_file=SSH_KEY_FILE,
+        remote_workdir="/federation/test_user/.cache/covalent",
+    )
 
-#     # First test when the remote result file is not found by mocking the return code
-#     # with a non-zero value.
-#     proc_mock.returncode = 1
-#     proc_mock.stdout = "stdout"
-#     proc_mock.stderr = "stderr"
+    proc_mock.returncode = 0
+    proc_mock.stdout = "COMPLETED"
+    proc_mock.stderr = "stderr"
 
-#     conn_mock.run = mock.AsyncMock(return_value=proc_mock)
+    conn_mock.run = mock.AsyncMock(return_value=proc_mock)
 
-#     try:
-#         await executor._query_result(
-#             result_filename="mock_result", task_results_dir="", conn=conn_mock
-#         )
-#     except Exception as raised_exception:
-#         expected_exception = FileNotFoundError(1, "stderr")
-#         assert isinstance(raised_exception, type(expected_exception))
-#         assert raised_exception.args == expected_exception.args
+    # Check completed status does not give any errors
+    executor._jobid = "123456"
+    executor._remote_query_script_filepath = "query_script.py"
+    await executor._poll_scheduler(conn_mock)
+    conn_mock.run.assert_called_once()
 
-#     # Now mock result files.
-#     proc_mock.returncode = 0
-#     conn_mock.run = mock.AsyncMock(return_value=proc_mock)
+    # Now give an "error" in the get_status method and check that the
+    # correct exception is raised.
+    proc_mock.returncode = 1
+    proc_mock.stderr = "AN ERROR"
+    conn_mock.run = mock.AsyncMock(return_value=proc_mock)
 
-#     mocker.patch("asyncssh.scp", return_value=mock.AsyncMock())
+    try:
+        await executor._poll_scheduler(conn_mock)
+    except RuntimeError as raised_exception:
+        expected_exception = RuntimeError("Getting job status failed: AN ERROR")
+        assert isinstance(raised_exception, type(expected_exception))
+        assert raised_exception.args == expected_exception.args
 
-#     # Don't actually try to remove result files:
-#     async_os_remove_mock = mock.AsyncMock(return_value=None)
-#     mocker.patch("aiofiles.os.remove", side_effect=async_os_remove_mock)
+    conn_mock.run.assert_called_once()
 
-#     # Mock the opening of specific result files:
-#     expected_results = [1, 2, 3, 4, 5]
-#     expected_error = None
-#     expected_stdout = "output logs"
-#     expected_stderr = "output errors"
-#     pickle_mock = mocker.patch(
-#         "cloudpickle.loads", return_value=(expected_results, expected_error)
-#     )
-#     unpatched_open = open
 
-#     def mock_open(*args, **kwargs):
-#         if args[0] == "mock_result":
-#             return mock.mock_open(read_data=None)(*args, **kwargs)
-#         elif args[0] == executor.options["output"]:
-#             return mock.mock_open(read_data=expected_stdout)(*args, **kwargs)
-#         elif args[0] == executor.options["error"]:
-#             return mock.mock_open(read_data=expected_stderr)(*args, **kwargs)
-#         else:
-#             return unpatched_open(*args, **kwargs)
+@pytest.mark.asyncio
+async def test_query_result(monkeypatch, proc_mock, conn_mock):
+    """Test querying results works as expected."""
 
-#     with mock.patch("aiofiles.threadpool.sync_open", mock_open):
-#         result, stdout, stderr, exception = await executor._query_result(
-#             result_filename="mock_result", task_results_dir="", conn=conn_mock
-#         )
+    executor = HPCExecutor(
+        username="test_user",
+        address="test_address",
+        ssh_key_file=SSH_KEY_FILE,
+        remote_workdir="/federation/test_user/.cache/covalent",
+    )
 
-#         assert result == expected_results
-#         assert exception == expected_error
-#         assert stdout == expected_stdout
-#         assert stderr == expected_stderr
-#         pickle_mock.assert_called_once()
+    # First test when the remote result file is not found by mocking the return code
+    # with a non-zero value.
+    proc_mock.returncode = 1
+    proc_mock.stdout = "stdout"
+    proc_mock.stderr = "stderr"
+
+    conn_mock.run = mock.AsyncMock(return_value=proc_mock)
+    executor._remote_result_filepath = Path(os.path.join(os.getcwd(), "mock_result"))
+    try:
+        await executor._fetch_result(conn=conn_mock)
+    except Exception as raised_exception:
+        expected_exception = FileNotFoundError(1, "stderr")
+        assert isinstance(raised_exception, type(expected_exception))
+        assert raised_exception.args == expected_exception.args
 
 
 # @pytest.mark.asyncio
@@ -733,74 +678,65 @@ def test_format_pre_launch_script(tmpdir):
 #         reset_proc_mock()
 
 
-# @pytest.mark.asyncio
-# async def test_teardown(mocker, proc_mock, conn_mock):
-#     """Test calling run works as expected."""
-#     executor = SlurmExecutor(
-#         username="test_user",
-#         address="test_address",
-#         ssh_key_file="~/.ssh/id_rsa",
-#         remote_workdir="/scratch/user/experiment1",
-#         create_unique_workdir=True,
-#         conda_env="my-conda-env",
-#         options={"nodes": 1, "c": 8, "qos": "regular"},
-#         srun_options={"slurmd-debug": 4, "n": 12, "cpu_bind": "cores"},
-#         srun_append="nsys profile --stats=true -t cuda --gpu-metrics-device=all",
-#         prerun_commands=[
-#             "module load package/1.2.3",
-#             "srun --ntasks-per-node 1 dcgmi profile --pause",
-#         ],
-#         postrun_commands=[
-#             "srun --ntasks-per-node 1 dcgmi profile --resume",
-#             "python ./path/to/my/post_process.py -j $SLURM_JOB_ID",
-#         ],
-#     )
+@pytest.mark.asyncio
+async def test_teardown(tmpdir, monkeypatch, proc_mock, conn_mock):
+    """Test calling run works as expected."""
 
-#     # dummy objects
-#     def f(x, y):
-#         return x + y
+    tmpdir.chdir()
+    executor = HPCExecutor(
+        username="test_user",
+        address="test_address",
+        ssh_key_file=SSH_KEY_FILE,
+        remote_workdir="/scratch/user/experiment1",
+        create_unique_workdir=True,
+        remote_conda_env="my-conda-env",
+    )
 
-#     dummy_function = partial(wrapper_fn, TransportableObject(f), call_before=[], call_after=[])
+    # dummy objects
+    def f(x, y):
+        return x + y
 
-#     dummy_metadata = {
-#         "dispatch_id": "259efebf-2c69-4981-a19e-ec90cdffd026",
-#         "node_id": 1,
-#         "results_dir": "results/directory/on/remote",
-#     }
+    dummy_function = partial(wrapper_fn, TransportableObject(f), call_before=[], call_after=[])
 
-#     dummy_args = (
-#         dummy_function,
-#         [TransportableObject(2)],
-#         {"y": TransportableObject(3)},
-#         dummy_metadata,
-#     )
+    dummy_metadata = {
+        "dispatch_id": "259efebf-2c69-4981-a19e-ec90cdffd026",
+        "node_id": 1,
+        "results_dir": "results/directory/on/remote",
+    }
 
-#     # mock behavior
-#     conn_mock.run = mock.AsyncMock(return_value=proc_mock)
-#     conn_mock.wait_closed = mock.AsyncMock(return_value=None)
+    dummy_args = (
+        dummy_function,
+        [TransportableObject(2)],
+        {"y": TransportableObject(3)},
+        dummy_metadata,
+    )
 
-#     async def __client_connect_succeed(*_):
-#         return conn_mock
+    # mock behavior
+    conn_mock.run = mock.AsyncMock(return_value=proc_mock)
+    conn_mock.wait_closed = mock.AsyncMock(return_value=None)
 
-#     async def __query_result_succeed(*_):
-#         return "result", "", "", None
+    async def __client_connect_succeed(*_):
+        return conn_mock
 
-#     async def __perform_cleanup(*_, **__):
-#         return
+    async def __fetch_result_succeed(*_):
+        return "result", "", "", None
 
-#     # patches
-#     patch_ccs = mock.patch.object(SlurmExecutor, "_client_connect", new=__client_connect_succeed)
-#     patch_qrs = mock.patch.object(SlurmExecutor, "_query_result", new=__query_result_succeed)
-#     patch_pc = mock.patch.object(SlurmExecutor, "perform_cleanup", new=__perform_cleanup)
+    async def __perform_cleanup(*_, **__):
+        return
 
-#     # check teardown method works as expected
-#     proc_mock.stdout = "86367505 COMPLETED"
-#     proc_mock.stderr = ""
-#     proc_mock.returncode = 0
-#     with patch_ccs, patch_qrs, patch_pc:
-#         mocker.patch("asyncssh.scp", return_value=mock.AsyncMock())
-#         await executor.run(*dummy_args)
-#         await executor.teardown(dummy_metadata)
-#         await executor.teardown(dummy_metadata)
-#         await executor.teardown(dummy_metadata)
-#         await executor.teardown(dummy_metadata)
+    # patches
+    patch_ccs = mock.patch.object(HPCExecutor, "_client_connect", new=__client_connect_succeed)
+    patch_qrs = mock.patch.object(HPCExecutor, "_fetch_result", new=__fetch_result_succeed)
+    patch_pc = mock.patch.object(HPCExecutor, "perform_cleanup", new=__perform_cleanup)
+
+    # check teardown method works as expected
+    proc_mock.stdout = "COMPLETED"
+    proc_mock.stderr = ""
+    proc_mock.returncode = 0
+    with patch_ccs, patch_qrs, patch_pc:
+        monkeypatch.setattr("asyncssh.scp", mock.AsyncMock())
+        await executor.run(*dummy_args)
+        await executor.teardown(dummy_metadata)
+        await executor.teardown(dummy_metadata)
+        await executor.teardown(dummy_metadata)
+        await executor.teardown(dummy_metadata)
