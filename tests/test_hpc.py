@@ -18,7 +18,7 @@
 #
 # Relief from the License may be granted by purchasing a commercial license.
 
-"""Tests for the SLURM executor plugin."""
+"""Tests for the HPC executor plugin."""
 
 import os
 import subprocess
