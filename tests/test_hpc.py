@@ -24,17 +24,13 @@ import os
 import subprocess
 from copy import deepcopy
 from datetime import timedelta
-from functools import partial
 from pathlib import Path
 from unittest import mock
 
 import aiofiles
 import cloudpickle as pickle
 import pytest
-from covalent._results_manager.result import Result
 from covalent._shared_files.config import get_config, set_config
-from covalent._workflow.transport import TransportableObject
-from covalent.executor.base import wrapper_fn
 
 from covalent_hpc_plugin import HPCExecutor
 
@@ -396,6 +392,7 @@ def test_format_pre_launch_script(tmpdir):
     pre_launch_str = executor._format_pre_launch_script()
     assert "3.8.5" in pre_launch_str
     assert "source activate myenv" in pre_launch_str
+
 
 # @pytest.mark.asyncio
 # async def test_failed_submit_script(mocker, conn_mock):
