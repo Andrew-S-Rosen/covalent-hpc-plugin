@@ -41,7 +41,7 @@ jobs:
           covalent start
 
       - name: Run tests with pytest
-        run: pytest --cov=covalent-hpc-plugin --cov-report=xml
+        run: pytest --cov=covalent_hpc_plugin --cov-report=xml
 
       - name: Stop Covalent server
         run: covalent stop
