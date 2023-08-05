@@ -250,7 +250,10 @@ def test_format_submit_script(tmpdir):
     assert "JobSpec" in submit_script_str
     assert f'name="{executor._name}"' in submit_script_str
     assert f'executable="python3"' in submit_script_str
-    assert "directory=" in submit_script_str and executor._job_remote_workdir in submit_script_str
+    assert (
+        "directory=" in submit_script_str
+        and str(executor._job_remote_workdir) in submit_script_str
+    )
     assert "environment={'hello': 'world'}" in submit_script_str
     assert (
         "stdout_path=" in submit_script_str
@@ -294,20 +297,6 @@ def test_format_submit_script(tmpdir):
     assert "pre_launch" not in submit_script_str
 
 
-def test_format_submit_script(tmpdir):
-    tmpdir.chdir()
-
-    executor = HPCExecutor(
-        username="test_user",
-        address="test_address",
-        instance="flux",
-    )
-
-    executor._jobid = "123456"
-    query_str = executor._format_query_status_script()
-    assert f'JobExecutor.get_instance("flux")' in query_str
-
-
 def test_submit_script(tmpdir):
     tmpdir.chdir()
 
@@ -325,12 +314,11 @@ def test_submit_script(tmpdir):
     executor._remote_stderr_filepath = f"stderr-{dispatch_id}-{task_id}.log"
     executor._remote_pre_launch_filepath = f"pre-launch-{dispatch_id}-{task_id}.sh"
 
-    executor._jobid = "123456"
-    query_str = executor._format_job_script()
-    assert f'JobExecutor.get_instance("local")' in query_str
+    submmit_str = executor._format_job_script()
+    assert f'JobExecutor.get_instance("local")' in submmit_str
 
     with open("test_submit.py", "w") as w:
-        w.write(query_str)
+        w.write(submmit_str)
     p = subprocess.run(
         "python test_submit.py", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
@@ -350,7 +338,39 @@ def test_format_query_script():
     executor._jobid = "123456"
     query_str = executor._format_query_status_script()
     assert f'JobExecutor.get_instance("flux")' in query_str
-    assert f'job_executor.attach(job, "{executor._jobid}")' in query_str
+    assert f'job_executor.attach(job, f"{executor._jobid}")' in query_str
+
+
+def test_query_script(tmpdir):
+    tmpdir.chdir()
+
+    executor = HPCExecutor(
+        username="test_user",
+        address="test_address",
+        instance="local",
+    )
+    dispatch_id = "259efebf-2c69-4981-a19e-ec90cdffd026"
+    task_id = 3
+    executor._name = f"{dispatch_id}-{task_id}"
+    executor._remote_pickle_script_filepath = f""
+    executor._job_remote_workdir = tmpdir
+    executor._remote_stdout_filepath = f"stdout-{dispatch_id}-{task_id}.log"
+    executor._remote_stderr_filepath = f"stderr-{dispatch_id}-{task_id}.log"
+    executor._remote_pre_launch_filepath = f"pre-launch-{dispatch_id}-{task_id}.sh"
+
+    submit_str = executor._format_job_script()
+    assert f'JobExecutor.get_instance("local")' in submit_str
+
+    executor._jobid = "{native_id}"
+    query_str = executor._format_query_status_script()
+    with open("test_query.py", "w") as w:
+        w.write(submit_str + query_str)
+    p = subprocess.run(
+        "python test_query.py", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    assert p.returncode == 0
+    assert p.stderr == b""
+    assert "ACTIVE" in p.stdout.decode()
 
 
 # def test_query_script(tmpdir):

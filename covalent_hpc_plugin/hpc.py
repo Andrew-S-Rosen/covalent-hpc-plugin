@@ -407,7 +407,8 @@ job = Job(
 )
 
 job_executor.submit(job)
-print(job.native_id)
+native_id = job.native_id
+print(native_id)
 """
 
     def _format_query_status_script(self) -> str:
@@ -434,7 +435,7 @@ from psij import Job, JobExecutor, JobState
 job_executor = JobExecutor.get_instance("{self.instance}")
 
 job = Job()
-job_executor.attach(job, "{self._jobid}")
+job_executor.attach(job, f"{self._jobid}")
 job_status = job.wait(
     target_states=[
         JobState.QUEUED,
