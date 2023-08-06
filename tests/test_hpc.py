@@ -655,7 +655,7 @@ async def test_fetch_result_v2(monkeypatch, tmpdir):
 
 
 @pytest.mark.asyncio
-async def test_run(tmpdir, monkeypatch, proc_mock, conn_mock):
+async def test_run_basic(tmpdir, monkeypatch, proc_mock, conn_mock):
     """Test calling run works as expected."""
     tmpdir.chdir()
     monkeypatch.setattr("asyncssh.scp", mock_basic_async)
@@ -711,4 +711,50 @@ async def test_run(tmpdir, monkeypatch, proc_mock, conn_mock):
     proc_mock.stderr = "FAILED"
     with patch_ccs:
         with pytest.raises(RuntimeError, match="Making remote directory failed: FAILED"):
+            await executor.run(*dummy_args)
+
+
+@pytest.mark.asyncio
+async def test_run(proc_mock, conn_mock):
+    """Test calling run works as expected."""
+    executor = HPCExecutor(
+        username="test_user",
+        address="test_address",
+        ssh_key_file="~/.ssh/id_rsa",
+    )
+
+    # dummy objects
+    def f(x, y):
+        return x + y
+
+    dummy_function = partial(wrapper_fn, TransportableObject(f), call_before=[], call_after=[])
+
+    dummy_metadata = {
+        "dispatch_id": "259efebf-2c69-4981-a19e-ec90cdffd026",
+        "node_id": 1,
+        "results_dir": "results/directory/on/remote",
+    }
+
+    dummy_args = (
+        dummy_function,
+        [TransportableObject(2)],
+        {"y": TransportableObject(3)},
+        dummy_metadata,
+    )
+
+    # mock behavior
+    conn_mock.run = mock.AsyncMock(return_value=proc_mock)
+    conn_mock.wait_closed = mock.AsyncMock(return_value=None)
+
+    async def __client_connect_succeed(*_):
+        return conn_mock
+
+    # patches
+    patch_ccs = mock.patch.object(HPCExecutor, "_client_connect", new=__client_connect_succeed)
+
+    # check failed creation of remote directory handled as expected
+    msg = "Failed to create directory"
+    proc_mock.stderr = msg
+    with patch_ccs:
+        with pytest.raises(RuntimeError, match=msg):
             await executor.run(*dummy_args)
