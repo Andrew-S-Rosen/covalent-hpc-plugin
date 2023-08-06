@@ -71,6 +71,7 @@ _EXECUTOR_PLUGIN_DEFAULTS = {
     # Pre/Post-launch commands
     "pre_launch_cmds": None,
     "post_launch_cmds": None,
+    "shebang": "#!/bin/bash",
     # Remote Python env parameters
     "remote_python_exe": "python",
     "remote_conda_env": None,
@@ -140,6 +141,7 @@ class HPCExecutor(AsyncBaseExecutor):
         environment: Environment variables to set for the job. Defaults to None, which is equivalent to {}.
         pre_launch_cmds: List of shell-compatible commands to run before launching the job. Defaults to None.
         post_launch_cmds: List of shell-compatible commands to run after launching the job. Defaults to None.
+        shebang: Shebang to use for the job script. Defaults to "#!/bin/bash".
         remote_python_exe: Python executable to use for job submission. Defaults to "python".
         remote_conda_env: Conda environment to activate on the remote machine. Defaults to None.
         remote_workdir: Working directory on the remote cluster. Defaults to "~/covalent-workdir".
@@ -173,6 +175,7 @@ class HPCExecutor(AsyncBaseExecutor):
         # Pre/Post-launch commands
         pre_launch_cmds: list[str] | None = _DEFAULT,
         post_launch_cmds: list[str] | None = _DEFAULT,
+        shebang: str | None = _DEFAULT,
         # Remote Python env parameters
         remote_python_exe: str = _DEFAULT,
         remote_conda_env: str | None = _DEFAULT,
@@ -291,6 +294,14 @@ class HPCExecutor(AsyncBaseExecutor):
             else hpc_config["post_launch_cmds"]
             if "post_launch_cmds" in hpc_config
             else _EXECUTOR_PLUGIN_DEFAULTS["post_launch_cmds"]
+        )
+
+        self.shebang = (
+            shebang
+            if shebang != _DEFAULT
+            else hpc_config["shebang"]
+            if "shebang" in hpc_config
+            else _EXECUTOR_PLUGIN_DEFAULTS["shebang"]
         )
 
         # Remote Python environment parameters
@@ -486,11 +497,13 @@ print(state.name)
         Returns:
             String representation of the pre-launch script.
         """
-        pre_launch_script = ""
+        pre_launch_script = f"{self.shebang}" if self.shebang else ""
 
         if self.remote_conda_env:
             pre_launch_script += f"""
-source activate {self.remote_conda_env}
+CONDA_BASE=$(conda info --base)
+source $CONDA_BASE/etc/profile.d/conda.sh
+conda activate {self.remote_conda_env}
 retval=$?
 if [ $retval -ne 0 ] ; then
     >&2 echo "Conda environment {self.remote_conda_env} is not present on the compute node. "\
@@ -517,8 +530,16 @@ fi
         Returns:
             String representation of the post-launch script.
         """
+        post_launch_script = f"{self.shebang}" if self.shebang else ""
+        if self.remote_conda_env:
+            post_launch_script += f"""
+CONDA_BASE=$(conda info --base)
+source $CONDA_BASE/etc/profile.d/conda.sh
+conda activate {self.remote_conda_env}
+"""
+        post_launch_script += "".join(f"{cmd}\n" for cmd in self.post_launch_cmds)
 
-        return "".join(f"{cmd}\n" for cmd in self.post_launch_cmds)
+        return post_launch_script
 
     async def _client_connect(self) -> asyncssh.SSHClientConnection:
         """
@@ -712,7 +733,10 @@ fi
 
         # Execute the job submission Python script
         app_log.debug("Submitting the job")
-        proc = await conn.run(f"{self.remote_python_exe} {self._remote_jobscript_filepath}")
+        cmd = f"{self.remote_python_exe} {self._remote_jobscript_filepath}"
+        if self.remote_conda_env:
+            cmd = f"conda activate {self.remote_conda_env} &&" + cmd
+        proc = await conn.run(cmd)
 
         if proc.returncode != 0:
             raise RuntimeError(f"Job submission failed: {proc.stderr.strip()}")
@@ -769,7 +793,10 @@ fi
         if not hasattr(self, "_jobid"):
             return Result.NEW_OBJ
 
-        proc = await conn.run(f"{self.remote_python_exe} {self._remote_query_script_filepath}")
+        cmd = f"{self.remote_python_exe} {self._remote_query_script_filepath}"
+        if self.remote_conda_env:
+            cmd = f"conda activate {self.remote_conda_env} &&" + cmd
+        proc = await conn.run(cmd)
 
         if proc.returncode != 0:
             raise RuntimeError(f"Getting job status failed: {proc.stderr.strip()}")
