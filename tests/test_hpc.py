@@ -62,11 +62,17 @@ def mock_basic_async(*args, **kwargs):
     return future
 
 
-def mock_fetch_result(*args, **kwargs):
+def mock_fetch_result(
+    result: any = "result", stdout: str = "", stderr: str = "", exception: Exception = None
+):
     """Mock for HPCExecutor._fetch_result()"""
-    future = asyncio.Future()
-    future.set_result(("result", "", "", None))
-    return future
+
+    def mock_func(*args, **kwargs):
+        future = asyncio.Future()
+        future.set_result((result, stdout, stderr, exception))
+        return future
+
+    return mock_func
 
 
 def mock_asyncssh_run(returncode: int = 0, stdout: str = "", stderr: str = ""):
@@ -659,7 +665,7 @@ async def test_run(tmpdir, monkeypatch, proc_mock, conn_mock):
     """Test calling run works as expected."""
     tmpdir.chdir()
     monkeypatch.setattr("asyncssh.scp", mock_basic_async)
-    monkeypatch.setattr("covalent_hpc_plugin.HPCExecutor._fetch_result", mock_fetch_result)
+    monkeypatch.setattr("covalent_hpc_plugin.HPCExecutor._fetch_result", mock_fetch_result())
 
     executor = HPCExecutor(
         username="test_user",
@@ -699,7 +705,7 @@ async def test_run(tmpdir, monkeypatch, proc_mock, conn_mock):
     # patches
     patch_ccs = mock.patch.object(HPCExecutor, "_client_connect", new=__client_connect_succeed)
 
-    # check teardown method works as expected
+    # check run/teardown method works as expected
     proc_mock.stdout = "COMPLETED"
     proc_mock.stderr = ""
     proc_mock.returncode = 0
@@ -718,3 +724,16 @@ async def test_run(tmpdir, monkeypatch, proc_mock, conn_mock):
     with patch_ccs:
         with pytest.raises(RuntimeError, match=msg):
             await executor.run(*dummy_args)
+
+    # Test job fetching error
+    proc_mock.stdout = "COMPLETED"
+    proc_mock.stderr = ""
+    proc_mock.returncode = 0
+    monkeypatch.setattr(
+        "covalent_hpc_plugin.HPCExecutor._fetch_result",
+        mock_fetch_result("result", "", "error", RuntimeError),
+    )
+    with pytest.raises(RuntimeError, match="Fetching job result failed: error"):
+        with patch_ccs:
+            await executor.run(*dummy_args)
+    monkeypatch.setattr("covalent_hpc_plugin.HPCExecutor._fetch_result", mock_fetch_result())

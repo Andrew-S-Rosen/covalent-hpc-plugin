@@ -685,7 +685,7 @@ fi
         print(stderr, file=sys.stderr)
 
         if exception:
-            raise RuntimeError(f"Fetching job result failed: {exception}")
+            raise RuntimeError(f"Fetching job result failed: {stderr}")
 
         app_log.debug("Preparing for teardown")
 
