@@ -405,7 +405,18 @@ async def test_client_connect(tmpdir):
     tmpdir.chdir()
 
     with pytest.raises(RuntimeError):
-        executor = HPCExecutor(address="test_address", username="test_use")
+        executor = HPCExecutor(
+            address="test_address", username="test_use", ssh_key_file=SSH_KEY_FILE
+        )
+        await executor._client_connect()
+
+    with pytest.raises(RuntimeError):
+        executor = HPCExecutor(
+            address="test_address",
+            username="test_use",
+            ssh_key_file=SSH_KEY_FILE,
+            cert_file=CERT_FILE,
+        )
         await executor._client_connect()
 
     with pytest.raises(RuntimeError):
@@ -415,7 +426,7 @@ async def test_client_connect(tmpdir):
         await executor._client_connect()
 
     with pytest.raises(ValueError, match="address is a required parameter"):
-        executor = HPCExecutor()
+        executor = HPCExecutor(ssh_key_file=SSH_KEY_FILE)
         await executor._client_connect()
 
     with pytest.raises(FileNotFoundError):
