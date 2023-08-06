@@ -493,7 +493,7 @@ async def test_poll_scheduler(proc_mock, conn_mock):
 
     proc_mock.returncode = 0
     proc_mock.stdout = "COMPLETED"
-    proc_mock.stderr = "stderr"
+    proc_mock.stderr = ""
 
     conn_mock.run = mock.AsyncMock(return_value=proc_mock)
 
@@ -501,6 +501,24 @@ async def test_poll_scheduler(proc_mock, conn_mock):
     executor._jobid = "123456"
     executor._remote_query_script_filepath = "mock.py"
     await executor._poll_scheduler(conn_mock)
+    conn_mock.run.assert_called_once()
+
+    # Check canceled status reported
+    executor = HPCExecutor(
+        username="test_user",
+        address="test_address",
+        ssh_key_file="ssh_key_file",
+        remote_workdir="/federation/test_user/.cache/covalent",
+    )
+    executor._jobid = "12345"
+    executor._remote_query_script_filepath = "mock.py"
+    proc_mock.returncode = 0
+    proc_mock.stdout = "CANCELED"
+    proc_mock.stderr = ""
+
+    conn_mock.run = mock.AsyncMock(return_value=proc_mock)
+    with pytest.raises(RuntimeError, match="Status for job with native ID 12345: CANCELED."):
+        await executor._poll_scheduler(conn_mock)
     conn_mock.run.assert_called_once()
 
     # Now give an "error" in the get_status method and check that the
@@ -516,7 +534,7 @@ async def test_poll_scheduler(proc_mock, conn_mock):
 
 
 @pytest.mark.asyncio
-async def test_fetch_result(monkeypatch, tmpdir, proc_mock, conn_mock):
+async def test_fetch_result(tmpdir, proc_mock, conn_mock):
     """Test querying results works as expected."""
 
     tmpdir.chdir()
@@ -551,11 +569,6 @@ async def test_fetch_result_v2(monkeypatch, tmpdir, proc_mock):
         ssh_key_file="ssh_key_file",
         remote_workdir="/federation/test_user/.cache/covalent",
     )
-
-    # Now test a successful one.
-    proc_mock.returncode = 0
-    proc_mock.stdout = ""
-    proc_mock.stderr = ""
 
     def mock_conn(*args, **kwargs):
         future = asyncio.Future()
