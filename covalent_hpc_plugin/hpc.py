@@ -685,7 +685,7 @@ fi
         print(stderr, file=sys.stderr)
 
         if exception:
-            raise RuntimeError(f"Fetching job result failed: {exception}")
+            raise RuntimeError(f"Fetching job result failed: {stderr}")
 
         app_log.debug("Preparing for teardown")
 
@@ -804,17 +804,14 @@ fi
         Returns:
             None
         """
-        try:
-            app_log.debug("Performing cleanup on remote...")
-            conn = await self._client_connect()
-            await self._perform_cleanup(conn)
+        app_log.debug("Performing cleanup on remote...")
+        conn = await self._client_connect()
+        await self._perform_cleanup(conn)
 
-            app_log.debug("Closing SSH connection...")
-            conn.close()
-            await conn.wait_closed()
-            app_log.debug("SSH connection closed, teardown complete")
-        except Exception:
-            app_log.warning("Cleanup could not successfully complete. Nonfatal error.")
+        app_log.debug("Closing SSH connection...")
+        conn.close()
+        await conn.wait_closed()
+        app_log.debug("SSH connection closed, teardown complete")
 
     async def _perform_cleanup(self, conn: asyncssh.SSHClientConnection) -> None:
         """
