@@ -62,6 +62,12 @@ def mock_basic_async(*args, **kwargs):
     return future
 
 
+def mock_sleep(*args, **kwargs):
+    future = asyncio.Future()
+    future.set_exception(ValueError("No sleep!"))
+    return future
+
+
 def mock_fetch_result(
     result: any = "result", stdout: str = "", stderr: str = "", exception: Exception = None
 ):
@@ -579,29 +585,30 @@ async def test_poll_scheduler_canceled(tmpdir, monkeypatch):
         await executor._poll_scheduler(asyncssh.SSHClientConnection)
 
 
-# If successful, this test will run a `while` loop forever.
-# Not sure how to add to CI test suite...
-# @pytest.mark.asyncio
-# async def test_poll_scheduler_v2(proc_mock, conn_mock):
-#     """Test that queued state results in continued polling."""
+@pytest.mark.asyncio
+async def test_poll_scheduler_loop(tmpdir, monkeypatch):
+    """Test that queued state results in continued polling."""
+    tmpdir.chdir()
+    monkeypatch.setattr("asyncssh.SSHClientConnection.run", mock_asyncssh_run(0, "QUEUED", ""))
+    monkeypatch.setattr("asyncio.sleep", mock_sleep)
 
-#     # Check queued status works
-#     executor = HPCExecutor(
-#         username="test_user",
-#         address="test_address",
-#         ssh_key_file="ssh_key_file",
-#         remote_workdir="/federation/test_user/.cache/covalent",
-#         poll_freq=1,
-#     )
-#     executor._jobid = "12345"
-#     executor._remote_query_script_filepath = "mock.py"
-#     proc_mock.returncode = 0
-#     proc_mock.stdout = "QUEUED"
-#     proc_mock.stderr = ""
+    # Check queued status works
+    executor = HPCExecutor(
+        username="test_user",
+        address="test_address",
+        ssh_key_file="ssh_key_file",
+        remote_workdir="/federation/test_user/.cache/covalent",
+        poll_freq=1,
+    )
+    executor._jobid = "12345"
+    executor._remote_query_script_filepath = "mock.py"
 
-#     conn_mock.run = mock.AsyncMock(return_value=proc_mock)
-#     await executor._poll_scheduler(conn_mock)
-#     assert conn_mock.run.call_count > 0
+    with pytest.raises(ValueError, match="No sleep!"):
+        await executor._poll_scheduler(asyncssh.SSHClientConnection)
+
+    monkeypatch.setattr("asyncssh.SSHClientConnection.run", mock_asyncssh_run(0, "ACTIVE", ""))
+    with pytest.raises(ValueError, match="No sleep!"):
+        await executor._poll_scheduler(asyncssh.SSHClientConnection)
 
 
 @pytest.mark.asyncio
