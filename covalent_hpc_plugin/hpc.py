@@ -497,7 +497,7 @@ print(state.name)
         Returns:
             String representation of the pre-launch script.
         """
-        pre_launch_script = f"{self.shebang}" if self.shebang else ""
+        pre_launch_script = f"{self.shebang}\n" if self.shebang else ""
 
         if self.remote_conda_env:
             pre_launch_script += f"""
@@ -530,7 +530,7 @@ fi
         Returns:
             String representation of the post-launch script.
         """
-        post_launch_script = f"{self.shebang}" if self.shebang else ""
+        post_launch_script = f"{self.shebang}\n" if self.shebang else ""
         if self.remote_conda_env:
             post_launch_script += f"""
 CONDA_BASE=$(conda info --base)
