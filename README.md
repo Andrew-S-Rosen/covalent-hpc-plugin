@@ -64,7 +64,7 @@ gpu_cores_per_process = 0
 duration = 10
 ```
 
-As you can see above, you can modify various parameters as-needed to better suit your needs, such as the `address` of the remote machine, the `username` to use when logging in, the `ssh_key_file` to use for authentication, the type of job scheduler (`instance`), and much more. Note that PSI/J is a common interface to many common job schedulers, so you only need to toggle the `instance` to switch between job schedulers.
+You can modify various parameters in the Covalent config file as-needed to better suit your needs, such as the `address` of the remote machine, the `username` to use when logging in, the `ssh_key_file` to use for authentication, the type of job scheduler (`instance`), and much more. Note that PSI/J is a common interface to many common job schedulers, so you only need to toggle the `instance` to switch between job schedulers.
 
 A full description of the various input parameters are described in the docstrings of the `HPCExecutor` class, reproduced below:
 
