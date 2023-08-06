@@ -510,7 +510,7 @@ fi
 
         return pre_launch_script
 
-    def _format_post_launch_script(self) -> str | None:
+    def _format_post_launch_script(self) -> str:
         """
         Create the post-launch script to run any user-requested commands.
 
