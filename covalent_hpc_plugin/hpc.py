@@ -141,7 +141,7 @@ class HPCExecutor(AsyncBaseExecutor):
         environment: Environment variables to set for the job. Defaults to None, which is equivalent to {}.
         pre_launch_cmds: List of shell-compatible commands to run before launching the job. Defaults to None.
         post_launch_cmds: List of shell-compatible commands to run after launching the job. Defaults to None.
-        shebang: Shebang to use for the job script. Defaults to "#!/bin/bash".
+        shebang: Shebang to use for pre-launch and post-launch commands. Defaults to "#!/bin/bash".
         remote_python_exe: Python executable to use for job submission. Defaults to "python".
         remote_conda_env: Conda environment to activate on the remote machine. Defaults to None.
         remote_workdir: Working directory on the remote cluster. Defaults to "~/covalent-workdir".
