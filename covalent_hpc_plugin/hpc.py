@@ -492,18 +492,23 @@ fi
             raise ValueError("address is a required parameter.")
 
         # Read in the private key and certificate files
-        if self.cert_file:
-            if not self.ssh_key_file:
-                raise ValueError("ssh_key_file must be set if cert_file is set.")
+        self.cert_file = Path(self.cert_file).expanduser().resolve() if self.cert_file else None
+        self.ssh_key_file = (
+            Path(self.ssh_key_file).expanduser().resolve() if self.ssh_key_file else None
+        )
 
-            self.cert_file = Path(self.cert_file).expanduser().resolve()
-            client_keys = (
-                asyncssh.read_private_key(self.ssh_key_file),
-                asyncssh.read_certificate(self.cert_file),
-            )
-        elif self.ssh_key_file:
-            self.ssh_key_file = Path(self.ssh_key_file).expanduser().resolve()
-            client_keys = asyncssh.read_private_key(self.ssh_key_file)
+        if self.ssh_key_file:
+            if self.cert_file:
+                client_keys = [
+                    (
+                        asyncssh.read_private_key(self.ssh_key_file),
+                        asyncssh.read_certificate(self.cert_file),
+                    )
+                ]
+            else:
+                client_keys = [asyncssh.read_private_key(self.ssh_key_file)]
+        elif self.cert_file:
+            raise ValueError("ssh_key_file is required if cert_file is provided.")
         else:
             client_keys = []
 
@@ -702,7 +707,7 @@ fi
             status: String describing the job status.
         """
 
-        if self._jobid is None:
+        if not hasattr(self, "_jobid"):
             return Result.NEW_OBJ
 
         proc = await conn.run(
