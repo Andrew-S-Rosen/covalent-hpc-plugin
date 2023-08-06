@@ -43,10 +43,6 @@ aiofiles.threadpool.wrap.register(mock.MagicMock)(
     lambda *args, **kwargs: aiofiles.threadpool.AsyncBufferedIOBase(*args, **kwargs)
 )
 
-FILE_DIR = Path(__file__).resolve().parent
-SSH_KEY_FILE = os.path.join(FILE_DIR, "id_rsa")
-CERT_FILE = os.path.join(FILE_DIR, "id_rsa.pub")
-
 
 @pytest.fixture
 def proc_mock():
@@ -58,23 +54,9 @@ def conn_mock():
     return mock.Mock()
 
 
-def setup_module():
-    """Setup the module."""
-    for f in [SSH_KEY_FILE, CERT_FILE]:
-        with open(f, "w") as f:
-            f.write("test_file")
-
-
-def teardown_module():
-    """Teardown the module."""
-    for f in [SSH_KEY_FILE, CERT_FILE]:
-        if os.path.exists(f):
-            os.remove(f)
-
-
 def test_init(tmpdir):
-    tmpdir.chdir()
     """Test that initialization properly sets member variables."""
+    tmpdir.chdir()
 
     # Test with defaults
     address = "host"
@@ -109,8 +91,8 @@ def test_init(tmpdir):
     executor = HPCExecutor(
         address=address,
         username=username,
-        ssh_key_file=SSH_KEY_FILE,
-        cert_file=CERT_FILE,
+        ssh_key_file="ssh_key_file",
+        cert_file="cert_file",
         instance="flux",
         inherit_environment=False,
         environment={"hello": "world"},
@@ -126,8 +108,8 @@ def test_init(tmpdir):
     )
     assert executor.username == username
     assert executor.address == address
-    assert executor.ssh_key_file == SSH_KEY_FILE
-    assert executor.cert_file == CERT_FILE
+    assert executor.ssh_key_file == "ssh_key_file"
+    assert executor.cert_file == "cert_file"
     assert executor.instance == "flux"
     assert executor.inherit_environment == False
     assert executor.environment == {"hello": "world"}
@@ -151,6 +133,7 @@ def test_removed_inits(tmpdir):
     """Test for removed inits"""
 
     tmpdir.chdir()
+
     start_config = deepcopy(get_config())
     for key in ["cert_file", "remote_conda_env"]:
         config = get_config()
@@ -169,8 +152,8 @@ def test_format_pickle_script(tmpdir):
     executor = HPCExecutor(
         username="test_user",
         address="test_address",
-        ssh_key_file=SSH_KEY_FILE,
-        cert_file=CERT_FILE,
+        ssh_key_file="ssh_key_file",
+        cert_file="cert_file",
         remote_workdir="/federation/test_user/.cache/covalent",
         cache_dir="~/.cache/covalent",
     )
@@ -188,7 +171,8 @@ def test_format_pickle_script(tmpdir):
 
 
 def test_pickle_script(tmpdir):
-    """Test pickle script works appropriately"""
+    """Test Python pickle script works appropriately"""
+
     tmpdir.chdir()
 
     def test_func(a, b="default"):
@@ -299,6 +283,7 @@ def test_format_submit_script(tmpdir):
 
 
 def test_submit_script(tmpdir):
+    """Test that the submit script actually works as intended"""
     tmpdir.chdir()
 
     executor = HPCExecutor(
@@ -330,6 +315,7 @@ def test_submit_script(tmpdir):
 
 
 def test_format_query_script():
+    """Test that the Python script to perform job queries is formatted correctly"""
     executor = HPCExecutor(
         username="test_user",
         address="test_address",
@@ -343,6 +329,7 @@ def test_format_query_script():
 
 
 def test_query_script(tmpdir):
+    """Test that the Python script to perform job queries works as expected"""
     tmpdir.chdir()
 
     executor = HPCExecutor(
@@ -375,6 +362,7 @@ def test_query_script(tmpdir):
 
 
 def test_format_pre_launch_script(tmpdir):
+    """Test that the prelaunch script is formatted appropriately"""
     tmpdir.chdir()
 
     executor = HPCExecutor(
@@ -401,7 +389,7 @@ def test_format_pre_launch_script(tmpdir):
 
 @pytest.mark.asyncio
 async def test_client_connect(tmpdir, monkeypatch):
-    "Test for _client_connect"
+    "Test for _client_connect without mocking the .connect()"
     tmpdir.chdir()
 
     def mock_read(*args, **kwargs):
@@ -412,13 +400,14 @@ async def test_client_connect(tmpdir, monkeypatch):
 
     with pytest.raises(RuntimeError):
         executor = HPCExecutor(
-            address="test_address", username="test_use", ssh_key_file=SSH_KEY_FILE
+            address="test_address", username="test_use", ssh_key_file="ssh_key_file"
         )
         await executor._client_connect()
 
 
 @pytest.mark.asyncio
 async def test_client_connect2(tmpdir, monkeypatch):
+    """Test for _client_connect with mocking the .connecct()"""
     tmpdir.chdir()
 
     def mock_read(*args, **kwargs):
@@ -433,14 +422,16 @@ async def test_client_connect2(tmpdir, monkeypatch):
     monkeypatch.setattr("asyncssh.read_certificate", mock_read)
     monkeypatch.setattr("asyncssh.connect", conn_mock)
 
-    executor = HPCExecutor(address="test_address", username="test_use", ssh_key_file=SSH_KEY_FILE)
+    executor = HPCExecutor(
+        address="test_address", username="test_use", ssh_key_file="ssh_key_file"
+    )
     assert await executor._client_connect() == True
 
     executor = HPCExecutor(
         address="test_address",
         username="test_use",
-        ssh_key_file=SSH_KEY_FILE,
-        cert_file=CERT_FILE,
+        ssh_key_file="ssh_key_file",
+        cert_file="cert_file",
     )
     assert await executor._client_connect() == True
 
@@ -450,12 +441,12 @@ async def test_client_connect2(tmpdir, monkeypatch):
     assert await executor._client_connect() == True
 
     with pytest.raises(ValueError, match="address is a required parameter"):
-        executor = HPCExecutor(ssh_key_file=SSH_KEY_FILE)
+        executor = HPCExecutor(ssh_key_file="ssh_key_file")
         await executor._client_connect()
 
     # Test that ssh file is set with cert file
     with pytest.raises(ValueError, match="ssh_key_file is required if cert_file is provided."):
-        executor = HPCExecutor(address="test_address", ssh_key_file=None, cert_file=CERT_FILE)
+        executor = HPCExecutor(address="test_address", ssh_key_file=None, cert_file="cert_file")
         await executor._client_connect()
 
 
@@ -468,7 +459,7 @@ async def test_get_status(tmpdir, proc_mock, conn_mock):
     executor = HPCExecutor(
         username="test_user",
         address="test_address",
-        ssh_key_file=SSH_KEY_FILE,
+        ssh_key_file="ssh_key_file",
         remote_workdir="/federation/test_user/.cache/covalent",
     )
 
@@ -495,7 +486,7 @@ async def test_poll_scheduler(proc_mock, conn_mock):
     executor = HPCExecutor(
         username="test_user",
         address="test_address",
-        ssh_key_file=SSH_KEY_FILE,
+        ssh_key_file="ssh_key_file",
         remote_workdir="/federation/test_user/.cache/covalent",
     )
 
@@ -532,7 +523,7 @@ async def test_query_result(tmpdir, proc_mock, conn_mock):
     executor = HPCExecutor(
         username="test_user",
         address="test_address",
-        ssh_key_file=SSH_KEY_FILE,
+        ssh_key_file="ssh_key_file",
         remote_workdir="/federation/test_user/.cache/covalent",
     )
 
@@ -685,7 +676,7 @@ async def test_teardown(tmpdir, monkeypatch, proc_mock, conn_mock):
     executor = HPCExecutor(
         username="test_user",
         address="test_address",
-        ssh_key_file=SSH_KEY_FILE,
+        ssh_key_file="ssh_key_file",
         remote_workdir="/scratch/user/experiment1",
         create_unique_workdir=True,
         remote_conda_env="my-conda-env",
