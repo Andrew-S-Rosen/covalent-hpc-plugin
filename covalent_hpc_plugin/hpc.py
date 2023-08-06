@@ -504,8 +504,7 @@ if [[ "{self._remote_python_version}" != $remote_py_version ]] ; then
 fi
 """
         if self.pre_launch_commands:
-            for cmd in self.pre_launch_commands:
-                pre_launch_script += f"{cmd}\n"
+            pre_launch_script += "".join(f"{cmd}\n" for cmd in self.pre_launch_commands)
 
         return pre_launch_script
 
