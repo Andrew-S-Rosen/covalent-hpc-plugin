@@ -68,7 +68,7 @@ As you can see above, you can modify various parameters as-needed to better suit
 
 A full description of the various input parameters are described in the docstrings of the `HPCExecutor` class, reproduced below:
 
-https://github.com/arosen93/covalent-hpc-plugin/blob/76bde98133a450682667f49e9babdecba5987f98/covalent_hpc_plugin/hpc.py#L117-L189
+https://github.com/arosen93/covalent-hpc-plugin/blob/4814844116bcacd8964c8bc5f136df4db59d0b60/covalent_hpc_plugin/hpc.py#L117-L189
 
 ### Defining Resource Specifications and Job Attributes
 
