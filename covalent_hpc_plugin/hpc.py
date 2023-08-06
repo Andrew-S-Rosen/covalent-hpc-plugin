@@ -517,10 +517,7 @@ fi
             String representation of the post-launch script.
         """
 
-        post_launch_script = ""
-        for cmd in self.post_launch_commands:
-            post_launch_script += f"{cmd}\n"
-        return post_launch_script
+        return "".join(f"{cmd}\n" for cmd in self.post_launch_commands)
 
     async def _client_connect(self) -> asyncssh.SSHClientConnection:
         """
@@ -712,7 +709,7 @@ fi
             await asyncssh.scp(temp.name, (conn, self._remote_jobscript_filepath))
 
         # Execute the job submission Python script
-        app_log.debug(f"Submitting the job")
+        app_log.debug("Submitting the job")
         proc = await conn.run(f"{self.remote_python_executable} {self._remote_jobscript_filepath}")
 
         if proc.returncode != 0:
