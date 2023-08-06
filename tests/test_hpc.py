@@ -436,6 +436,7 @@ def test_format_pre_launch_script(tmpdir):
     pre_launch_str = executor._format_pre_launch_script()
     assert "3.8.5" in pre_launch_str
     assert "conda activate" not in pre_launch_str
+    assert "#!/bin/bash" in pre_launch_str
 
     executor = HPCExecutor(
         username="test_user", address="test_address", instance="flux", remote_conda_env="myenv"
@@ -459,6 +460,7 @@ def test_format_pre_launch_script(tmpdir):
     assert "3.8.5" in pre_launch_str
     assert "conda activate myenv" in pre_launch_str
     assert "echo hello\necho world\n" in pre_launch_str
+    assert "#!/bin/bash" in pre_launch_str
 
 
 def test_format_post_launch_script(tmpdir):
@@ -472,6 +474,7 @@ def test_format_post_launch_script(tmpdir):
     )
     post_launch_str = executor._format_post_launch_script()
     assert post_launch_str == "echo hello\necho world\n"
+    assert "#!/bin/bash" in post_launch_str
 
 
 @pytest.mark.asyncio
