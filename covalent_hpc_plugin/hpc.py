@@ -893,5 +893,7 @@ fi
             self._remote_stdout_filepath,
             self._remote_stderr_filepath,
         ]
+        if self.post_launch_cmds:
+            files_to_remove.append(self._remote_post_launch_filepath)
         for f in files_to_remove:
             await conn.run(f"rm {f}")
