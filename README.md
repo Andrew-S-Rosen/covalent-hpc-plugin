@@ -68,15 +68,15 @@ As you can see above, you can modify various parameters as-needed to better suit
 
 A full description of the various input parameters are described in the docstrings of the `HPCExecutor` class, reproduced below:
 
-https://github.com/arosen93/covalent-hpc-plugin/blob/4814844116bcacd8964c8bc5f136df4db59d0b60/covalent_hpc_plugin/hpc.py#L117-L189
+https://github.com/Quantum-Accelerators/covalent-hpc-plugin/blob/996fc51263efd69624ba9bb73f8564d2083a5509/covalent_hpc_plugin/hpc.py#L117-L189
 
 ### Defining Resource Specifications and Job Attributes
 
-Two of the most important sets of parameters are `resource_spec_kwargs` and `job_attributes_kwargs`, which used to specify the resources required for the job (e.g. number of nodes, number of processes per node, etc.) and the job attributes (e.g. duration, queue name, etc.), respectively. The `resource_spec_kwargs` is a dictionary of keyword arguments passed to PSI/J's [`ResourceSpecV1`](https://exaworks.org/psij-python/docs/v/0.9.0/.generated/psij.html#psij.resource_spec.ResourceSpecV1) class, whereas `job_attributes_kwargs` is a dictionary of keyword arguments passed to PSI/J's [`JobAttributes`](https://exaworks.org/psij-python/docs/v/0.9.0/.generated/psij.html#psij.JobAttributes) class. The allowed types are listed [here](https://github.com/arosen93/covalent-hpc-plugin/blob/367a84acd2114b31cf603f6b8a6e3f46c246c44a/covalent_hpc_plugin/hpc.py#L85-L111).
+Two of the most important sets of parameters are `resource_spec_kwargs` and `job_attributes_kwargs`, which used to specify the resources required for the job (e.g. number of nodes, number of processes per node, etc.) and the job attributes (e.g. duration, queue name, etc.), respectively. The `resource_spec_kwargs` is a dictionary of keyword arguments passed to PSI/J's [`ResourceSpecV1`](https://exaworks.org/psij-python/docs/v/0.9.0/.generated/psij.html#psij.resource_spec.ResourceSpecV1) class, whereas `job_attributes_kwargs` is a dictionary of keyword arguments passed to PSI/J's [`JobAttributes`](https://exaworks.org/psij-python/docs/v/0.9.0/.generated/psij.html#psij.JobAttributes) class. The allowed types are listed [here](https://github.com/Quantum-Accelerators/covalent-hpc-plugin/blob/996fc51263efd69624ba9bb73f8564d2083a5509/covalent_hpc_plugin/hpc.py#L88-L114).
 
 ### Using the Plugin in a Workflow: Approach 1
 
-With the configuration file appropriately set up, one can run a workflow on the HPC machine as follows:
+With the configuration file appropriately set up, one can run a workflow on the HPC machine s follows:
 
 ```python
 import covalent as ct
