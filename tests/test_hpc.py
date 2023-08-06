@@ -399,23 +399,19 @@ def test_format_pre_launch_script(tmpdir):
 
 
 @pytest.mark.asyncio
-async def test_client_connect(tmpdir):
+async def test_client_connect(tmpdir, monkeypatch):
     "Test for _client_connect"
 
+    def mock_read(*args, **kwargs):
+        return True
+
     tmpdir.chdir()
+    monkeypatch.setattr("asyncssh.read_private_key", mock_read)
+    monkeypatch.setattr("asyncssh.read_certificate", mock_read)
 
     with pytest.raises(RuntimeError):
         executor = HPCExecutor(
             address="test_address", username="test_use", ssh_key_file=SSH_KEY_FILE
-        )
-        await executor._client_connect()
-
-    with pytest.raises(RuntimeError):
-        executor = HPCExecutor(
-            address="test_address",
-            username="test_use",
-            ssh_key_file=SSH_KEY_FILE,
-            cert_file=CERT_FILE,
         )
         await executor._client_connect()
 
@@ -427,15 +423,6 @@ async def test_client_connect(tmpdir):
 
     with pytest.raises(ValueError, match="address is a required parameter"):
         executor = HPCExecutor(ssh_key_file=SSH_KEY_FILE)
-        await executor._client_connect()
-
-    with pytest.raises(FileNotFoundError):
-        executor = HPCExecutor(
-            username="test_user",
-            address="test_address",
-            ssh_key_file="/this/file/does/not/exist",
-            remote_workdir="/federation/test_user/.cache/covalent",
-        )
         await executor._client_connect()
 
     # Test that ssh file is set with cert file

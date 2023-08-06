@@ -499,12 +499,14 @@ fi
 
         if self.ssh_key_file:
             if self.cert_file:
-                client_keys = (
-                    asyncssh.read_private_key(self.ssh_key_file),
-                    asyncssh.read_certificate(self.cert_file),
-                )
+                client_keys = [
+                    (
+                        asyncssh.read_private_key(self.ssh_key_file),
+                        asyncssh.read_certificate(self.cert_file),
+                    )
+                ]
             else:
-                client_keys = asyncssh.read_private_key(self.ssh_key_file)
+                client_keys = [asyncssh.read_private_key(self.ssh_key_file)]
         elif self.cert_file:
             raise ValueError("ssh_key_file is required if cert_file is provided.")
         else:
