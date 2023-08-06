@@ -708,6 +708,8 @@ async def test_run(tmpdir, monkeypatch, proc_mock, conn_mock):
         remote_workdir="/scratch/user/experiment1",
         create_unique_workdir=True,
         remote_conda_env="my-conda-env",
+        pre_launch_commands=["echo hello", "echo world"],
+        post_launch_commands=["echo goodbye", "echo world"],
     )
 
     # dummy objects
