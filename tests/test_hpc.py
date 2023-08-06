@@ -108,7 +108,7 @@ def test_init_defaults(tmpdir):
     assert executor.address == address
     assert executor.username == ""
     assert executor.ssh_key_file == "~/.ssh/id_rsa"
-    assert executor.cert_file == None
+    assert executor.cert_file is None
     assert executor.instance == "slurm"
     assert executor.inherit_environment == True
     assert executor.environment == {}
@@ -253,7 +253,7 @@ def test_pickle_script(tmpdir):
     assert os.path.exists(result_filename)
     pickle_load = pickle.load(open(result_filename, "rb"))
     assert pickle_load[0] == "hello world"
-    assert pickle_load[1] == None
+    assert pickle_load[1] is None
 
 
 def test_format_submit_script(tmpdir):
@@ -562,7 +562,7 @@ async def test_poll_scheduler_completed(tmpdir, monkeypatch):
     # Check completed status does not give any errors
     executor._jobid = "123456"
     executor._remote_query_script_filepath = "mock.py"
-    assert await executor._poll_scheduler(asyncssh.SSHClientConnection) == None
+    assert await executor._poll_scheduler(asyncssh.SSHClientConnection) is None
 
 
 @pytest.mark.asyncio
