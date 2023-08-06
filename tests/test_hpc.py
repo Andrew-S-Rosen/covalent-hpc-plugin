@@ -399,14 +399,22 @@ def test_format_pre_launch_script(tmpdir):
 
 
 @pytest.mark.asyncio
-async def test_failed_submit_script(tmpdir, monkeypatch, conn_mock):
-    "Test for expected errors"
+async def test_client_connect(tmpdir):
+    "Test for _client_connect"
 
     tmpdir.chdir()
 
-    monkeypatch.setattr("asyncssh.connect", conn_mock)
+    with pytest.raises(RuntimeError):
+        executor = HPCExecutor(address="test_address", username="test_use")
+        await executor._client_connect()
 
-    with pytest.raises(ValueError, match="address is a required parameter."):
+    with pytest.raises(RuntimeError):
+        executor = HPCExecutor(
+            address="test_address", username="test_use", ssh_key_file=None, cert_file=None
+        )
+        await executor._client_connect()
+
+    with pytest.raises(ValueError, match="address is a required parameter"):
         executor = HPCExecutor()
         await executor._client_connect()
 
@@ -419,14 +427,9 @@ async def test_failed_submit_script(tmpdir, monkeypatch, conn_mock):
         )
         await executor._client_connect()
 
-    with pytest.raises(FileNotFoundError):
-        executor = HPCExecutor(
-            username="test_user",
-            address="test_address",
-            ssh_key_file=SSH_KEY_FILE,
-            cert_file="/this/file/does/not/exist",
-            remote_workdir="/federation/test_user/.cache/covalent",
-        )
+    # Test that ssh file is set with cert file
+    with pytest.raises(ValueError, match="ssh_key_file is required if cert_file is provided."):
+        executor = HPCExecutor(address="test_address", ssh_key_file=None, cert_file=CERT_FILE)
         await executor._client_connect()
 
 
@@ -690,9 +693,6 @@ async def test_teardown(tmpdir, monkeypatch, proc_mock, conn_mock):
 
     async def __fetch_result_succeed(*_):
         return "result", "", "", None
-
-    async def __perform_cleanup(*_, **__):
-        return
 
     # patches
     patch_ccs = mock.patch.object(HPCExecutor, "_client_connect", new=__client_connect_succeed)
