@@ -20,6 +20,7 @@
 
 """Tests for the HPC executor plugin."""
 
+import asyncio
 import os
 import subprocess
 from copy import deepcopy
@@ -401,11 +402,11 @@ def test_format_pre_launch_script(tmpdir):
 @pytest.mark.asyncio
 async def test_client_connect(tmpdir, monkeypatch):
     "Test for _client_connect"
+    tmpdir.chdir()
 
     def mock_read(*args, **kwargs):
         return True
 
-    tmpdir.chdir()
     monkeypatch.setattr("asyncssh.read_private_key", mock_read)
     monkeypatch.setattr("asyncssh.read_certificate", mock_read)
 
@@ -415,11 +416,38 @@ async def test_client_connect(tmpdir, monkeypatch):
         )
         await executor._client_connect()
 
-    with pytest.raises(RuntimeError):
-        executor = HPCExecutor(
-            address="test_address", username="test_use", ssh_key_file=None, cert_file=None
-        )
-        await executor._client_connect()
+
+@pytest.mark.asyncio
+async def test_client_connect2(tmpdir, monkeypatch):
+    tmpdir.chdir()
+
+    def mock_read(*args, **kwargs):
+        return True
+
+    def conn_mock(*args, **kwargs):
+        future = asyncio.Future()
+        future.set_result(True)
+        return future
+
+    monkeypatch.setattr("asyncssh.read_private_key", mock_read)
+    monkeypatch.setattr("asyncssh.read_certificate", mock_read)
+    monkeypatch.setattr("asyncssh.connect", conn_mock)
+
+    executor = HPCExecutor(address="test_address", username="test_use", ssh_key_file=SSH_KEY_FILE)
+    await executor._client_connect()
+
+    executor = HPCExecutor(
+        address="test_address",
+        username="test_use",
+        ssh_key_file=SSH_KEY_FILE,
+        cert_file=CERT_FILE,
+    )
+    await executor._client_connect()
+
+    executor = HPCExecutor(
+        address="test_address", username="test_use", ssh_key_file=None, cert_file=None
+    )
+    await executor._client_connect()
 
     with pytest.raises(ValueError, match="address is a required parameter"):
         executor = HPCExecutor(ssh_key_file=SSH_KEY_FILE)
