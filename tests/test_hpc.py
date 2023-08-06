@@ -149,7 +149,7 @@ def test_init_nondefaults(tmpdir):
         resource_spec_kwargs={"node_count": 2},
         job_attributes_kwargs={"duration": 20},
         launcher="multiple",
-        remote_python_executable="python2",
+        remote_python_exe="python2",
         remote_conda_env="myenv",
         remote_workdir="~/my-remote-dir",
         create_unique_workdir=True,
@@ -166,7 +166,7 @@ def test_init_nondefaults(tmpdir):
     assert executor.resource_spec_kwargs == {"node_count": 2}
     assert executor.job_attributes_kwargs == {"duration": timedelta(minutes=20)}
     assert executor.launcher == "multiple"
-    assert executor.remote_python_executable == "python2"
+    assert executor.remote_python_exe == "python2"
     assert executor.remote_conda_env == "myenv"
     assert executor.remote_workdir == "~/my-remote-dir"
     assert executor.create_unique_workdir == True
@@ -268,7 +268,7 @@ def test_format_submit_script(tmpdir):
         address="test_address",
         ssh_key_file="~/.ssh/id_rsa",
         remote_workdir=remote_workdir,
-        remote_python_executable="python3",
+        remote_python_exe="python3",
         environment={"hello": "world"},
         launcher="srun",
         resource_spec_kwargs={"node_count": 10},
@@ -451,7 +451,7 @@ def test_format_pre_launch_script(tmpdir):
         address="test_address",
         instance="flux",
         remote_conda_env="myenv",
-        pre_launch_commands=["echo hello", "echo world"],
+        pre_launch_cmds=["echo hello", "echo world"],
     )
     executor._remote_python_version = "3.8.5"
 
@@ -468,7 +468,7 @@ def test_format_post_launch_script(tmpdir):
         username="test_user",
         address="test_address",
         instance="flux",
-        post_launch_commands=["echo hello", "echo world"],
+        post_launch_cmds=["echo hello", "echo world"],
     )
     post_launch_str = executor._format_post_launch_script()
     assert post_launch_str == "echo hello\necho world\n"
@@ -708,8 +708,8 @@ async def test_run(tmpdir, monkeypatch, proc_mock, conn_mock):
         remote_workdir="/scratch/user/experiment1",
         create_unique_workdir=True,
         remote_conda_env="my-conda-env",
-        pre_launch_commands=["echo hello", "echo world"],
-        post_launch_commands=["echo goodbye", "echo world"],
+        pre_launch_cmds=["echo hello", "echo world"],
+        post_launch_cmds=["echo goodbye", "echo world"],
     )
 
     # dummy objects

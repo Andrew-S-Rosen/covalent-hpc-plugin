@@ -69,10 +69,10 @@ _EXECUTOR_PLUGIN_DEFAULTS = {
         "custom_attributes": None,
     },
     # Pre/Post-launch commands
-    "pre_launch_commands": None,
-    "post_launch_commands": None,
+    "pre_launch_cmds": None,
+    "post_launch_cmds": None,
     # Remote Python env parameters
-    "remote_python_executable": "python",
+    "remote_python_exe": "python",
     "remote_conda_env": None,
     # Covalent parameters
     "remote_workdir": "~/covalent-workdir",
@@ -138,9 +138,9 @@ class HPCExecutor(AsyncBaseExecutor):
             job is queued and run. Defaults to None, which is equivalent to the PSI/J defaults.
         inherit_environment: Whether the job should inherit the parent environment. Defaults to True.
         environment: Environment variables to set for the job. Defaults to None, which is equivalent to {}.
-        pre_launch_commands: List of shell-compatible commands to run before launching the job. Defaults to None.
-        post_launch_commands: List of shell-compatible commands to run after launching the job. Defaults to None.
-        remote_python_executable: Python executable to use for job submission. Defaults to "python".
+        pre_launch_cmds: List of shell-compatible commands to run before launching the job. Defaults to None.
+        post_launch_cmds: List of shell-compatible commands to run after launching the job. Defaults to None.
+        remote_python_exe: Python executable to use for job submission. Defaults to "python".
         remote_conda_env: Conda environment to activate on the remote machine. Defaults to None.
         remote_workdir: Working directory on the remote cluster. Defaults to "~/covalent-workdir".
         create_unique_workdir: Whether to create a unique working (sub)directory for each task.
@@ -171,10 +171,10 @@ class HPCExecutor(AsyncBaseExecutor):
         inherit_environment: bool = _DEFAULT,
         environment: dict[str, str] | None = _DEFAULT,
         # Pre/Post-launch commands
-        pre_launch_commands: list[str] | None = _DEFAULT,
-        post_launch_commands: list[str] | None = _DEFAULT,
+        pre_launch_cmds: list[str] | None = _DEFAULT,
+        post_launch_cmds: list[str] | None = _DEFAULT,
         # Remote Python env parameters
-        remote_python_executable: str = _DEFAULT,
+        remote_python_exe: str = _DEFAULT,
         remote_conda_env: str | None = _DEFAULT,
         # Covalent parameters
         remote_workdir: str | Path = _DEFAULT,
@@ -277,29 +277,29 @@ class HPCExecutor(AsyncBaseExecutor):
         )
 
         # Pre/Post-launch commands
-        self.pre_launch_commands = (
-            pre_launch_commands
-            if pre_launch_commands != _DEFAULT
-            else hpc_config["pre_launch_commands"]
-            if "pre_launch_commands" in hpc_config
-            else _EXECUTOR_PLUGIN_DEFAULTS["pre_launch_commands"]
+        self.pre_launch_cmds = (
+            pre_launch_cmds
+            if pre_launch_cmds != _DEFAULT
+            else hpc_config["pre_launch_cmds"]
+            if "pre_launch_cmds" in hpc_config
+            else _EXECUTOR_PLUGIN_DEFAULTS["pre_launch_cmds"]
         )
 
-        self.post_launch_commands = (
-            post_launch_commands
-            if post_launch_commands != _DEFAULT
-            else hpc_config["post_launch_commands"]
-            if "post_launch_commands" in hpc_config
-            else _EXECUTOR_PLUGIN_DEFAULTS["post_launch_commands"]
+        self.post_launch_cmds = (
+            post_launch_cmds
+            if post_launch_cmds != _DEFAULT
+            else hpc_config["post_launch_cmds"]
+            if "post_launch_cmds" in hpc_config
+            else _EXECUTOR_PLUGIN_DEFAULTS["post_launch_cmds"]
         )
 
         # Remote Python environment parameters
-        self.remote_python_executable = (
-            remote_python_executable
-            if remote_python_executable != _DEFAULT
-            else hpc_config["remote_python_executable"]
-            if "remote_python_executable" in hpc_config
-            else _EXECUTOR_PLUGIN_DEFAULTS["remote_python_executable"]
+        self.remote_python_exe = (
+            remote_python_exe
+            if remote_python_exe != _DEFAULT
+            else hpc_config["remote_python_exe"]
+            if "remote_python_exe" in hpc_config
+            else _EXECUTOR_PLUGIN_DEFAULTS["remote_python_exe"]
         )
 
         self.remote_conda_env = (
@@ -406,7 +406,7 @@ with open(Path("{self._remote_result_filepath}").expanduser().resolve(), "wb") a
         )
         post_launch_string = (
             f"post_launch=Path('{self._remote_post_launch_filepath}').expanduser().resolve(),"
-            if self.post_launch_commands
+            if self.post_launch_cmds
             else ""
         )
 
@@ -420,7 +420,7 @@ job_executor = JobExecutor.get_instance("{self.instance}")
 job = Job(
     JobSpec(
         name="{self._name}",
-        executable="{self.remote_python_executable}",
+        executable="{self.remote_python_exe}",
         environment={self.environment},
         launcher="{self.launcher}",
         arguments=[str(Path("{self._remote_pickle_script_filepath}").expanduser().resolve())],
@@ -505,8 +505,8 @@ if [[ "{self._remote_python_version}" != $remote_py_version ]] ; then
     exit 199
 fi
 """
-        if self.pre_launch_commands:
-            pre_launch_script += "".join(f"{cmd}\n" for cmd in self.pre_launch_commands)
+        if self.pre_launch_cmds:
+            pre_launch_script += "".join(f"{cmd}\n" for cmd in self.pre_launch_cmds)
 
         return pre_launch_script
 
@@ -518,7 +518,7 @@ fi
             String representation of the post-launch script.
         """
 
-        return "".join(f"{cmd}\n" for cmd in self.post_launch_commands)
+        return "".join(f"{cmd}\n" for cmd in self.post_launch_cmds)
 
     async def _client_connect(self) -> asyncssh.SSHClientConnection:
         """
@@ -676,7 +676,7 @@ fi
             if client_err := proc_chmod.stderr.strip():
                 raise RuntimeError(f"Changing permissions failed with file: {proc_chmod}")
 
-        if self.post_launch_commands:
+        if self.post_launch_cmds:
             async with aiofiles.tempfile.NamedTemporaryFile(dir=self.cache_dir, mode="w") as temp:
                 post_launch_script = self._format_post_launch_script()
                 app_log.debug("Writing post launch file")
@@ -712,7 +712,7 @@ fi
 
         # Execute the job submission Python script
         app_log.debug("Submitting the job")
-        proc = await conn.run(f"{self.remote_python_executable} {self._remote_jobscript_filepath}")
+        proc = await conn.run(f"{self.remote_python_exe} {self._remote_jobscript_filepath}")
 
         if proc.returncode != 0:
             raise RuntimeError(f"Job submission failed: {proc.stderr.strip()}")
@@ -769,9 +769,7 @@ fi
         if not hasattr(self, "_jobid"):
             return Result.NEW_OBJ
 
-        proc = await conn.run(
-            f"{self.remote_python_executable} {self._remote_query_script_filepath}"
-        )
+        proc = await conn.run(f"{self.remote_python_exe} {self._remote_query_script_filepath}")
 
         if proc.returncode != 0:
             raise RuntimeError(f"Getting job status failed: {proc.stderr.strip()}")
