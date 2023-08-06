@@ -434,7 +434,7 @@ async def test_client_connect2(tmpdir, monkeypatch):
     monkeypatch.setattr("asyncssh.connect", conn_mock)
 
     executor = HPCExecutor(address="test_address", username="test_use", ssh_key_file=SSH_KEY_FILE)
-    await executor._client_connect()
+    assert await executor._client_connect() == True
 
     executor = HPCExecutor(
         address="test_address",
@@ -442,12 +442,12 @@ async def test_client_connect2(tmpdir, monkeypatch):
         ssh_key_file=SSH_KEY_FILE,
         cert_file=CERT_FILE,
     )
-    await executor._client_connect()
+    assert await executor._client_connect() == True
 
     executor = HPCExecutor(
         address="test_address", username="test_use", ssh_key_file=None, cert_file=None
     )
-    await executor._client_connect()
+    assert await executor._client_connect() == True
 
     with pytest.raises(ValueError, match="address is a required parameter"):
         executor = HPCExecutor(ssh_key_file=SSH_KEY_FILE)
