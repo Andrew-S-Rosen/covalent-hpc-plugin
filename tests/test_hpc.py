@@ -30,6 +30,7 @@ from pathlib import Path
 from unittest import mock
 
 import aiofiles
+import asyncssh
 import cloudpickle as pickle
 import pytest
 from covalent._results_manager.result import Result
@@ -389,7 +390,7 @@ def test_format_pre_launch_script(tmpdir):
 
 @pytest.mark.asyncio
 async def test_client_connect(tmpdir, monkeypatch):
-    "Test for _client_connect without mocking the .connect()"
+    """Test for _client_connect without mocking the .connect()"""
     tmpdir.chdir()
 
     def mock_read(*args, **kwargs):
@@ -407,7 +408,7 @@ async def test_client_connect(tmpdir, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_client_connect2(tmpdir, monkeypatch):
-    """Test for _client_connect with mocking the .connecct()"""
+    """Test for _client_connect with mocking the .conecct()"""
     tmpdir.chdir()
 
     def mock_read(*args, **kwargs):
@@ -515,7 +516,7 @@ async def test_poll_scheduler(proc_mock, conn_mock):
 
 
 @pytest.mark.asyncio
-async def test_query_result(tmpdir, proc_mock, conn_mock):
+async def test_fetch_result(monkeypatch, tmpdir, proc_mock, conn_mock):
     """Test querying results works as expected."""
 
     tmpdir.chdir()
@@ -534,9 +535,65 @@ async def test_query_result(tmpdir, proc_mock, conn_mock):
     proc_mock.stderr = "stderr"
 
     conn_mock.run = mock.AsyncMock(return_value=proc_mock)
-    executor._remote_result_filepath = Path(os.path.join(os.getcwd(), "mock_result"))
+    executor._remote_result_filepath = Path("/path/to/file")
     with pytest.raises(FileNotFoundError, match="stderr"):
         await executor._fetch_result(conn=conn_mock)
+
+
+@pytest.mark.asyncio
+async def test_fetch_result_v2(monkeypatch, tmpdir, proc_mock):
+    """Test querying results works as expected."""
+    tmpdir.chdir()
+
+    executor = HPCExecutor(
+        username="test_user",
+        address="test_address",
+        ssh_key_file="ssh_key_file",
+        remote_workdir="/federation/test_user/.cache/covalent",
+    )
+
+    # Now test a successful one.
+    proc_mock.returncode = 0
+    proc_mock.stdout = ""
+    proc_mock.stderr = ""
+
+    def mock_conn(*args, **kwargs):
+        future = asyncio.Future()
+
+        class MockStdout:
+            def __init__(self):
+                self.returncode = 0
+
+        future.set_result(MockStdout())
+        return future
+
+    def mock_scp(*args, **kwargs):
+        future = asyncio.Future()
+        future.set_result(True)
+        return future
+
+    monkeypatch.setattr("asyncssh.SSHClientConnection.run", mock_conn)
+    monkeypatch.setattr("asyncssh.scp", mock_scp)
+    executor._remote_result_filepath = Path("/path/to/test.txt")
+    executor._task_results_dir = tmpdir
+    executor._remote_stdout_filepath = Path(os.path.join(tmpdir, "stdout.txt"))
+    executor._remote_stderr_filepath = Path(os.path.join(tmpdir, "stderr.txt"))
+    results_file = Path(os.path.join(tmpdir, "test.txt"))
+    pickle.dump(["result", "exception"], open("test.pkl", "wb"))
+
+    with open(results_file, "wb") as f:
+        with open("test.pkl", "rb") as f2:
+            f.write(f2.read())
+    with open(executor._remote_stdout_filepath, "w") as f:
+        f.write("stdout")
+    with open(executor._remote_stderr_filepath, "w") as f:
+        f.write("stderr")
+
+    outputs = await executor._fetch_result(conn=asyncssh.SSHClientConnection)
+    assert outputs[0] == "result"
+    assert outputs[1] == "stdout"
+    assert outputs[2] == "stderr"
+    assert outputs[3] == "exception"
 
 
 # @pytest.mark.asyncio
@@ -669,7 +726,7 @@ async def test_query_result(tmpdir, proc_mock, conn_mock):
 
 
 @pytest.mark.asyncio
-async def test_teardown(tmpdir, monkeypatch, proc_mock, conn_mock):
+async def test_run(tmpdir, monkeypatch, proc_mock, conn_mock):
     """Test calling run works as expected."""
 
     tmpdir.chdir()
