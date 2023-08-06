@@ -339,7 +339,7 @@ def test_format_submit_script_minimal(tmpdir):
     submit_script_str = executor._format_job_script()
     assert "resources" not in submit_script_str
     assert "attributes" not in submit_script_str
-    assert "pre_launch" not in submit_script_str
+    assert "pre_launch" in submit_script_str
 
 
 def test_submit_script(tmpdir):

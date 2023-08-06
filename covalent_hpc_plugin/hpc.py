@@ -259,10 +259,6 @@ class HPCExecutor(AsyncBaseExecutor):
             if "job_attributes_kwargs" in hpc_config
             else _EXECUTOR_PLUGIN_DEFAULTS["job_attributes_kwargs"]
         )
-        if isinstance(self.job_attributes_kwargs.get("duration"), int):
-            self.job_attributes_kwargs["duration"] = datetime.timedelta(
-                minutes=self.job_attributes_kwargs["duration"]
-            )
 
         self.inherit_environment = (
             inherit_environment
@@ -346,6 +342,12 @@ class HPCExecutor(AsyncBaseExecutor):
             if "poll_freq" in hpc_config
             else _EXECUTOR_PLUGIN_DEFAULTS["poll_freq"]
         )
+
+        # Validate/clean up parameters
+        if isinstance(self.job_attributes_kwargs.get("duration"), int):
+            self.job_attributes_kwargs["duration"] = datetime.timedelta(
+                minutes=self.job_attributes_kwargs["duration"]
+            )
 
         if self.poll_freq < 30:
             print("Polling frequency will be increased to 30 seconds.")
@@ -529,12 +531,13 @@ fi
         if not self.address:
             raise ValueError("address is a required parameter.")
 
-        # Read in the private key and certificate files
+        # Define paths to private key and certificate files
         self.cert_file = Path(self.cert_file).expanduser().resolve() if self.cert_file else None
         self.ssh_key_file = (
             Path(self.ssh_key_file).expanduser().resolve() if self.ssh_key_file else None
         )
 
+        # Read the private key and certificate files
         if self.ssh_key_file:
             if self.cert_file:
                 client_keys = [
