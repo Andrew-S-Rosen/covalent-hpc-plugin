@@ -8,7 +8,7 @@
 
 ## Covalent HPC Plugin
 
-[Covalent](https://www.covalent.xyz) is a Pythonic workflow tool used to execute tasks on advanced computing hardware. This executor plugin uses [PSI/J](https://exaworks.org/psij-python/index.html) to allow Covalent to seamlessly interface with a variety of common high-performance computing job schedulers and pilot systems (e.g. [Slurm](https://slurm.schedmd.com/), [PBS](https://www.openpbs.org/), [IBM Spectrum LSF](https://www.ibm.com/products/hpc-workload-management), [Flux](https://flux-framework.readthedocs.io/en/latest/), [Cobalt](https://git.cels.anl.gov/aig-public/cobalt), [RADICAL-Pilot](https://radicalpilot.readthedocs.io/en/stable/)). For workflows to be deployable, users must have SSH access to the login node, access to the job scheduler, and write access to the remote filesystem.
+[Covalent](https://www.covalent.xyz) is a Pythonic workflow tool used to execute tasks on advanced computing hardware. This executor plugin uses [PSI/J](https://exaworks.org/psij-python/index.html) to allow Covalent to seamlessly interface with a variety of common high-performance computing job schedulers and pilot systems (e.g. [Slurm](https://slurm.schedmd.com/), [PBS](https://www.openpbs.org/), [LSF](https://www.ibm.com/products/hpc-workload-management), [Flux](https://flux-framework.readthedocs.io/en/latest/), [Cobalt](https://git.cels.anl.gov/aig-public/cobalt), [RADICAL-Pilot](https://radicalpilot.readthedocs.io/en/stable/)). For workflows to be deployable, users must have SSH access to the login node, access to the job scheduler, and write access to the remote filesystem.
 
 ## Installation
 
@@ -68,7 +68,7 @@ As you can see above, you can modify various parameters as-needed to better suit
 
 A full description of the various input parameters are described in the docstrings of the `HPCExecutor` class, reproduced below:
 
-https://github.com/arosen93/covalent-hpc-plugin/blob/9688f04d0fac3caaa8accb6eb9da6715c8c5f264/covalent_hpc_plugin/hpc.py#L114-L181
+https://github.com/arosen93/covalent-hpc-plugin/blob/0794b6a0a88b7ea5fff64c50845ca281b255b4cc/covalent_hpc_plugin/hpc.py#L114-L181
 
 ### Defining Resource Specifications and Job Attributes
 
