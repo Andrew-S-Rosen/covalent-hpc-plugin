@@ -34,7 +34,7 @@ Note that the Python major and minor version numbers on both the local and remot
 
 ### Default Configuration Parameters
 
-By default, when you install the `covalent-hpc-plugin` and `import covalent` for the first time, your Covalent [configuration file](https://docs.covalent.xyz/docs/user-documentation/how-to/customization/) (found at `~/.config/covalent/covalent.conf` by default) will automatically be updated to include the following sections. These are not all of the available parameters but are simply the default values.
+By default, when you install the `covalent-hpc-plugin` and run `import covalent` for the first time, your Covalent [configuration file](https://docs.covalent.xyz/docs/user-documentation/how-to/customization/) (found at `~/.config/covalent/covalent.conf` by default) will automatically be updated to include the following sections. These are not all of the available parameters but are simply the default values.
 
 ```
 [executors.hpc]
