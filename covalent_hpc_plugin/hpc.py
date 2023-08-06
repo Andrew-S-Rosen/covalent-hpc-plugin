@@ -50,6 +50,7 @@ _EXECUTOR_PLUGIN_DEFAULTS = {
     "cert_file": None,
     # PSI/J parameters
     "instance": "slurm",
+    "launcher": "single",
     "inherit_environment": True,
     "environment": {},
     "resource_spec_kwargs": {
@@ -67,7 +68,9 @@ _EXECUTOR_PLUGIN_DEFAULTS = {
         "reservation_id": None,
         "custom_attributes": None,
     },
-    "launcher": "single",
+    # Pre/Post-launch commands
+    "pre_launch_commands": None,
+    "post_launch_commands": None,
     # Remote Python env parameters
     "remote_python_executable": "python",
     "remote_conda_env": None,
@@ -135,6 +138,8 @@ class HPCExecutor(AsyncBaseExecutor):
             job is queued and run. Defaults to None, which is equivalent to the PSI/J defaults.
         inherit_environment: Whether the job should inherit the parent environment. Defaults to True.
         environment: Environment variables to set for the job. Defaults to None, which is equivalent to {}.
+        pre_launch_commands: List of shell-compatible commands to run before launching the job. Defaults to None.
+        post_launch_commands: List of shell-compatible commands to run after launching the job. Defaults to None.
         remote_python_executable: Python executable to use for job submission. Defaults to "python".
         remote_conda_env: Conda environment to activate on the remote machine. Defaults to None.
         remote_workdir: Working directory on the remote cluster. Defaults to "~/covalent-workdir".
@@ -165,6 +170,9 @@ class HPCExecutor(AsyncBaseExecutor):
         job_attributes_kwargs: JobAttributesHint = _DEFAULT,
         inherit_environment: bool = _DEFAULT,
         environment: dict[str, str] | None = _DEFAULT,
+        # Pre/Post-launch commands
+        pre_launch_commands: list[str] | None = _DEFAULT,
+        post_launch_commands: list[str] | None = _DEFAULT,
         # Remote Python env parameters
         remote_python_executable: str = _DEFAULT,
         remote_conda_env: str | None = _DEFAULT,
@@ -251,10 +259,6 @@ class HPCExecutor(AsyncBaseExecutor):
             if "job_attributes_kwargs" in hpc_config
             else _EXECUTOR_PLUGIN_DEFAULTS["job_attributes_kwargs"]
         )
-        if isinstance(self.job_attributes_kwargs.get("duration"), int):
-            self.job_attributes_kwargs["duration"] = datetime.timedelta(
-                minutes=self.job_attributes_kwargs["duration"]
-            )
 
         self.inherit_environment = (
             inherit_environment
@@ -270,6 +274,23 @@ class HPCExecutor(AsyncBaseExecutor):
             else hpc_config["environment"]
             if "environment" in hpc_config
             else _EXECUTOR_PLUGIN_DEFAULTS["environment"]
+        )
+
+        # Pre/Post-launch commands
+        self.pre_launch_commands = (
+            pre_launch_commands
+            if pre_launch_commands != _DEFAULT
+            else hpc_config["pre_launch_commands"]
+            if "pre_launch_commands" in hpc_config
+            else _EXECUTOR_PLUGIN_DEFAULTS["pre_launch_commands"]
+        )
+
+        self.post_launch_commands = (
+            post_launch_commands
+            if post_launch_commands != _DEFAULT
+            else hpc_config["post_launch_commands"]
+            if "post_launch_commands" in hpc_config
+            else _EXECUTOR_PLUGIN_DEFAULTS["post_launch_commands"]
         )
 
         # Remote Python environment parameters
@@ -321,6 +342,12 @@ class HPCExecutor(AsyncBaseExecutor):
             if "poll_freq" in hpc_config
             else _EXECUTOR_PLUGIN_DEFAULTS["poll_freq"]
         )
+
+        # Validate/clean up parameters
+        if isinstance(self.job_attributes_kwargs.get("duration"), int):
+            self.job_attributes_kwargs["duration"] = datetime.timedelta(
+                minutes=self.job_attributes_kwargs["duration"]
+            )
 
         if self.poll_freq < 30:
             print("Polling frequency will be increased to 30 seconds.")
@@ -377,9 +404,9 @@ with open(Path("{self._remote_result_filepath}").expanduser().resolve(), "wb") a
             if self.job_attributes_kwargs
             else ""
         )
-        pre_launch_string = (
-            f"pre_launch=Path('{self._remote_pre_launch_filepath}').expanduser().resolve(),"
-            if self.remote_conda_env
+        post_launch_string = (
+            f"post_launch=Path('{self._remote_post_launch_filepath}').expanduser().resolve(),"
+            if self.post_launch_commands
             else ""
         )
 
@@ -394,15 +421,16 @@ job = Job(
     JobSpec(
         name="{self._name}",
         executable="{self.remote_python_executable}",
+        environment={self.environment},
+        launcher="{self.launcher}",
         arguments=[str(Path("{self._remote_pickle_script_filepath}").expanduser().resolve())],
         directory=Path("{self._job_remote_workdir}").expanduser().resolve(),
-        environment={self.environment},
         stdout_path=Path("{self._remote_stdout_filepath}").expanduser().resolve(),
         stderr_path=Path("{self._remote_stderr_filepath}").expanduser().resolve(),
+        pre_launch=Path('{self._remote_pre_launch_filepath}').expanduser().resolve(),
+        {post_launch_string}
         {resources_string}
         {attributes_string}
-        {pre_launch_string}
-        launcher="{self.launcher}",
     )
 )
 
@@ -452,14 +480,16 @@ print(state.name)
 
     def _format_pre_launch_script(self) -> str:
         """
-        Create the pre-launch script to activate the conda environment
-        and check the Python version.
+        Create the pre-launch script to activate the conda environment,
+        check the Python version, and run any user-requested commands.
 
         Returns:
             String representation of the pre-launch script.
         """
+        pre_launch_script = ""
+
         if self.remote_conda_env:
-            pre_launch_script = f"""
+            pre_launch_script += f"""
 source activate {self.remote_conda_env}
 retval=$?
 if [ $retval -ne 0 ] ; then
@@ -468,9 +498,6 @@ if [ $retval -ne 0 ] ; then
     exit 99
 fi
 """
-        else:
-            pre_launch_script = ""
-
         pre_launch_script += f"""
 remote_py_version=$(python -c "print('.'.join(map(str, __import__('sys').version_info[:2])))")
 if [[ "{self._remote_python_version}" != $remote_py_version ]] ; then
@@ -478,7 +505,20 @@ if [[ "{self._remote_python_version}" != $remote_py_version ]] ; then
     exit 199
 fi
 """
+        if self.pre_launch_commands:
+            pre_launch_script += "".join(f"{cmd}\n" for cmd in self.pre_launch_commands)
+
         return pre_launch_script
+
+    def _format_post_launch_script(self) -> str:
+        """
+        Create the post-launch script to run any user-requested commands.
+
+        Returns:
+            String representation of the post-launch script.
+        """
+
+        return "".join(f"{cmd}\n" for cmd in self.post_launch_commands)
 
     async def _client_connect(self) -> asyncssh.SSHClientConnection:
         """
@@ -491,12 +531,13 @@ fi
         if not self.address:
             raise ValueError("address is a required parameter.")
 
-        # Read in the private key and certificate files
+        # Define paths to private key and certificate files
         self.cert_file = Path(self.cert_file).expanduser().resolve() if self.cert_file else None
         self.ssh_key_file = (
             Path(self.ssh_key_file).expanduser().resolve() if self.ssh_key_file else None
         )
 
+        # Read the private key and certificate files
         if self.ssh_key_file:
             if self.cert_file:
                 client_keys = [
@@ -565,6 +606,7 @@ fi
         stdout_filename = f"stdout-{dispatch_id}-{node_id}.log"
         stderr_filename = f"stderr-{dispatch_id}-{node_id}.log"
         pre_launch_file = f"pre-launch-{dispatch_id}-{node_id}.sh"
+        post_launch_file = f"post-launch-{dispatch_id}-{node_id}.sh"
 
         self._remote_result_filepath = self._job_remote_workdir / result_filename
         self._remote_jobscript_filepath = self._job_remote_workdir / job_script_filename
@@ -575,9 +617,8 @@ fi
         self._remote_func_filepath = self._job_remote_workdir / func_filename
         self._remote_stdout_filepath = self._job_remote_workdir / stdout_filename
         self._remote_stderr_filepath = self._job_remote_workdir / stderr_filename
-        self._remote_pre_launch_filepath = (
-            self._job_remote_workdir / pre_launch_file if self.remote_conda_env else None
-        )
+        self._remote_pre_launch_filepath = self._job_remote_workdir / pre_launch_file
+        self._remote_post_launch_filepath = self._job_remote_workdir / post_launch_file
 
         # Establish connection
         conn = await self._client_connect()
@@ -635,6 +676,24 @@ fi
             if client_err := proc_chmod.stderr.strip():
                 raise RuntimeError(f"Changing permissions failed with file: {proc_chmod}")
 
+        if self.post_launch_commands:
+            async with aiofiles.tempfile.NamedTemporaryFile(dir=self.cache_dir, mode="w") as temp:
+                post_launch_script = self._format_post_launch_script()
+                app_log.debug("Writing post launch file")
+                await temp.write(post_launch_script)
+                await temp.flush()
+
+                app_log.debug(
+                    f"Copying post launch script to remote filesystem: {self._remote_post_launch_filepath}"
+                )
+                await asyncssh.scp(temp.name, (conn, self._remote_post_launch_filepath))
+
+                cmd_chmod = f"chmod +x {self._remote_post_launch_filepath}"
+                proc_chmod = await conn.run(cmd_chmod)
+
+                if client_err := proc_chmod.stderr.strip():
+                    raise RuntimeError(f"Changing permissions failed with file: {proc_chmod}")
+
         # ---------------------------------------------------------------------------------------------
         # NOTE: When PSI/J Remote is released, we can do the following server-side instead.
         # ---------------------------------------------------------------------------------------------
@@ -652,7 +711,7 @@ fi
             await asyncssh.scp(temp.name, (conn, self._remote_jobscript_filepath))
 
         # Execute the job submission Python script
-        app_log.debug(f"Submitting the job")
+        app_log.debug("Submitting the job")
         proc = await conn.run(f"{self.remote_python_executable} {self._remote_jobscript_filepath}")
 
         if proc.returncode != 0:

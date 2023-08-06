@@ -108,7 +108,7 @@ def test_init_defaults(tmpdir):
     assert executor.address == address
     assert executor.username == ""
     assert executor.ssh_key_file == "~/.ssh/id_rsa"
-    assert executor.cert_file == None
+    assert executor.cert_file is None
     assert executor.instance == "slurm"
     assert executor.inherit_environment == True
     assert executor.environment == {}
@@ -253,7 +253,7 @@ def test_pickle_script(tmpdir):
     assert os.path.exists(result_filename)
     pickle_load = pickle.load(open(result_filename, "rb"))
     assert pickle_load[0] == "hello world"
-    assert pickle_load[1] == None
+    assert pickle_load[1] is None
 
 
 def test_format_submit_script(tmpdir):
@@ -339,7 +339,7 @@ def test_format_submit_script_minimal(tmpdir):
     submit_script_str = executor._format_job_script()
     assert "resources" not in submit_script_str
     assert "attributes" not in submit_script_str
-    assert "pre_launch" not in submit_script_str
+    assert "pre_launch" in submit_script_str
 
 
 def test_submit_script(tmpdir):
@@ -445,6 +445,33 @@ def test_format_pre_launch_script(tmpdir):
     pre_launch_str = executor._format_pre_launch_script()
     assert "3.8.5" in pre_launch_str
     assert "source activate myenv" in pre_launch_str
+
+    executor = HPCExecutor(
+        username="test_user",
+        address="test_address",
+        instance="flux",
+        remote_conda_env="myenv",
+        pre_launch_commands=["echo hello", "echo world"],
+    )
+    executor._remote_python_version = "3.8.5"
+
+    pre_launch_str = executor._format_pre_launch_script()
+    assert "3.8.5" in pre_launch_str
+    assert "source activate myenv" in pre_launch_str
+    assert "echo hello\necho world\n" in pre_launch_str
+
+
+def test_format_post_launch_script(tmpdir):
+    """Test that the postlaunch script is formatted appropriately"""
+    tmpdir.chdir()
+    executor = HPCExecutor(
+        username="test_user",
+        address="test_address",
+        instance="flux",
+        post_launch_commands=["echo hello", "echo world"],
+    )
+    post_launch_str = executor._format_post_launch_script()
+    assert post_launch_str == "echo hello\necho world\n"
 
 
 @pytest.mark.asyncio
@@ -562,7 +589,7 @@ async def test_poll_scheduler_completed(tmpdir, monkeypatch):
     # Check completed status does not give any errors
     executor._jobid = "123456"
     executor._remote_query_script_filepath = "mock.py"
-    assert await executor._poll_scheduler(asyncssh.SSHClientConnection) == None
+    assert await executor._poll_scheduler(asyncssh.SSHClientConnection) is None
 
 
 @pytest.mark.asyncio
@@ -681,6 +708,8 @@ async def test_run(tmpdir, monkeypatch, proc_mock, conn_mock):
         remote_workdir="/scratch/user/experiment1",
         create_unique_workdir=True,
         remote_conda_env="my-conda-env",
+        pre_launch_commands=["echo hello", "echo world"],
+        post_launch_commands=["echo goodbye", "echo world"],
     )
 
     # dummy objects
