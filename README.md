@@ -32,7 +32,7 @@ Note that the Python major and minor version numbers on both the local and remot
 
 ## Usage
 
-### Configuration File
+### Default Configuration Parameters
 
 By default, when you install the `covalent-hpc-plugin` and `import covalent` for the first time, your Covalent [configuration file](https://docs.covalent.xyz/docs/user-documentation/how-to/customization/) (found at `~/.config/covalent/covalent.conf` by default) will automatically be updated to include the following sections. These are not all of the available parameters but are simply the default values.
 
@@ -123,6 +123,18 @@ executor = ct.executor.HPCExecutor(
     remote_conda_env="myenv",
     remote_workdir="~/covalent-workdir",
 )
+
+@ct.electron(executor=executor)
+def add(a, b):
+    return a + b
+
+@ct.lattice
+def workflow(a, b):
+    return add(a, b)
+
+
+dispatch_id = ct.dispatch(workflow)(1, 2)
+result = ct.get_result(dispatch_id)
 ```
 
 ### Working Example: Perlmutter
