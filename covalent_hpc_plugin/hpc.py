@@ -826,17 +826,15 @@ fi
         Returns:
             None
         """
-        files_to_remove = (
-            [
-                self._remote_func_filepath,
-                self._remote_pickle_script_filepath,
-                self._remote_pre_launch_filepath,
-                self._remote_jobscript_filepath,
-                self._remote_query_script_filepath,
-                self._remote_result_filepath,
-                self._remote_stdout_filepath,
-                self._remote_stderr_filepath,
-            ],
-        )
+        files_to_remove = [
+            self._remote_func_filepath,
+            self._remote_pickle_script_filepath,
+            self._remote_pre_launch_filepath,
+            self._remote_jobscript_filepath,
+            self._remote_query_script_filepath,
+            self._remote_result_filepath,
+            self._remote_stdout_filepath,
+            self._remote_stderr_filepath,
+        ]
         for f in files_to_remove:
             await conn.run(f"rm {f}")
