@@ -29,7 +29,6 @@ from functools import partial
 from pathlib import Path
 from unittest import mock
 
-import aiofiles
 import asyncssh
 import cloudpickle as pickle
 import pytest
@@ -39,10 +38,6 @@ from covalent._workflow.transport import TransportableObject
 from covalent.executor.base import wrapper_fn
 
 from covalent_hpc_plugin import HPCExecutor
-
-aiofiles.threadpool.wrap.register(mock.MagicMock)(
-    lambda *args, **kwargs: aiofiles.threadpool.AsyncBufferedIOBase(*args, **kwargs)
-)
 
 
 @pytest.fixture
@@ -60,17 +55,17 @@ def mock_key_read(*args, **kwargs):
     return True
 
 
-def mock_asyncssh_connect(*args, **kwargs):
-    """Mock for asyncssh.connect()"""
+def mock_basic_async(*args, **kwargs):
+    """A basic async mock"""
     future = asyncio.Future()
     future.set_result(True)
     return future
 
 
-def mock_scp(*args, **kwargs):
-    """Mock for asyncssh.scp()"""
+def mock_fetch_result(*args, **kwargs):
+    """Mock for HPCExecutor._fetch_result()"""
     future = asyncio.Future()
-    future.set_result(True)
+    future.set_result(("result", "", "", None))
     return future
 
 
@@ -91,7 +86,7 @@ def mock_asyncssh_run(returncode: int = 0, stdout: str = "", stderr: str = ""):
     return mock_func
 
 
-def test_init(tmpdir):
+def test_init_defaults(tmpdir):
     """Test that initialization properly sets member variables."""
     tmpdir.chdir()
 
@@ -121,6 +116,12 @@ def test_init(tmpdir):
         Path(get_config("dispatcher.cache_dir")).expanduser().resolve()
     )
     assert executor.poll_freq == 60
+
+
+def test_init_nondefaults(tmpdir):
+    """Test that initialization properly sets member variables."""
+
+    tmpdir.chdir()
 
     # Test with non-defaults
     address = "host"
@@ -161,8 +162,13 @@ def test_init(tmpdir):
     assert executor.poll_freq == 90
     assert os.path.exists(tmpdir / "my-cache-dir")
 
+
+def test_init_defaults(tmpdir):
+    """Test that initialization properly sets member variables."""
+    tmpdir.chdir()
+
     # Test poll freq is auto-raised
-    executor = HPCExecutor(address=address, poll_freq=10)
+    executor = HPCExecutor(address="host", poll_freq=10)
     assert executor.poll_freq == 30
 
 
@@ -296,7 +302,12 @@ def test_format_submit_script(tmpdir):
         and executor._remote_pre_launch_filepath in submit_script_str
     )
 
-    remote_workdir = "/federation/test_user/.cache/covalent"
+
+def test_format_submit_script_minimal(tmpdir):
+    """Test that the shell script (in string form) which is to be submitted on
+    the remote server is created with no errors."""
+
+    tmpdir.chdir()
     executor = HPCExecutor(
         username="test_user",
         address="test_address",
@@ -337,11 +348,11 @@ def test_submit_script(tmpdir):
     executor._remote_stderr_filepath = f"stderr-{dispatch_id}-{task_id}.log"
     executor._remote_pre_launch_filepath = f"pre-launch-{dispatch_id}-{task_id}.sh"
 
-    submmit_str = executor._format_job_script()
-    assert f'JobExecutor.get_instance("local")' in submmit_str
+    submit_str = executor._format_job_script()
+    assert f'JobExecutor.get_instance("local")' in submit_str
 
     with open("test_submit.py", "w") as w:
-        w.write(submmit_str)
+        w.write(submit_str)
     p = subprocess.run(
         "python test_submit.py", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
@@ -426,61 +437,62 @@ def test_format_pre_launch_script(tmpdir):
 
 @pytest.mark.asyncio
 async def test_client_connect_failure(tmpdir, monkeypatch):
-    """Test for _client_connect without mocking the .connect()"""
+    """Test for _client_connect without mocking .connect()"""
     tmpdir.chdir()
-
     monkeypatch.setattr("asyncssh.read_private_key", mock_key_read)
     monkeypatch.setattr("asyncssh.read_certificate", mock_key_read)
 
     with pytest.raises(RuntimeError):
-        executor = HPCExecutor(
+        await HPCExecutor(
             address="test_address", username="test_use", ssh_key_file="ssh_key_file"
-        )
-        await executor._client_connect()
+        )._client_connect()
 
 
 @pytest.mark.asyncio
 async def test_client_connect(tmpdir, monkeypatch):
-    """Test for _client_connect with mocking the .conecct()"""
+    """Test for _client_connect with mocking .connect()"""
     tmpdir.chdir()
-
     monkeypatch.setattr("asyncssh.read_private_key", mock_key_read)
     monkeypatch.setattr("asyncssh.read_certificate", mock_key_read)
-    monkeypatch.setattr("asyncssh.connect", mock_asyncssh_connect)
+    monkeypatch.setattr("asyncssh.connect", mock_basic_async)
 
-    executor = HPCExecutor(
-        address="test_address", username="test_use", ssh_key_file="ssh_key_file"
+    assert (
+        await HPCExecutor(
+            address="test_address", username="test_use", ssh_key_file="ssh_key_file"
+        )._client_connect()
+        == True
     )
-    assert await executor._client_connect() == True
 
-    executor = HPCExecutor(
-        address="test_address",
-        username="test_use",
-        ssh_key_file="ssh_key_file",
-        cert_file="cert_file",
+    assert (
+        await HPCExecutor(
+            address="test_address",
+            username="test_use",
+            ssh_key_file="ssh_key_file",
+            cert_file="cert_file",
+        )._client_connect()
+        == True
     )
-    assert await executor._client_connect() == True
 
-    executor = HPCExecutor(
-        address="test_address", username="test_use", ssh_key_file=None, cert_file=None
+    assert (
+        await HPCExecutor(
+            address="test_address", username="test_use", ssh_key_file=None, cert_file=None
+        )._client_connect()
+        == True
     )
-    assert await executor._client_connect() == True
 
     with pytest.raises(ValueError, match="address is a required parameter"):
-        executor = HPCExecutor(ssh_key_file="ssh_key_file")
-        await executor._client_connect()
+        await HPCExecutor(ssh_key_file="ssh_key_file")._client_connect()
 
     with pytest.raises(ValueError, match="ssh_key_file is required if cert_file is provided."):
-        executor = HPCExecutor(address="test_address", ssh_key_file=None, cert_file="cert_file")
-        await executor._client_connect()
+        await HPCExecutor(
+            address="test_address", ssh_key_file=None, cert_file="cert_file"
+        )._client_connect()
 
 
 @pytest.mark.asyncio
-async def test_get_status_succeses(tmpdir, monkeypatch):
+async def test_get_status_success(tmpdir, monkeypatch):
     """Test the get_status method."""
-
     tmpdir.chdir()
-
     monkeypatch.setattr(
         "asyncssh.SSHClientConnection.run", mock_asyncssh_run(0, "Fake Status", "")
     )
@@ -506,9 +518,7 @@ async def test_get_status_succeses(tmpdir, monkeypatch):
 @pytest.mark.asyncio
 async def test_get_status_failures(tmpdir, monkeypatch):
     """Test the get_status method for failures."""
-
     tmpdir.chdir()
-
     monkeypatch.setattr("asyncssh.SSHClientConnection.run", mock_asyncssh_run(1, "", "AN ERROR"))
 
     executor = HPCExecutor(
@@ -525,11 +535,9 @@ async def test_get_status_failures(tmpdir, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_poll_scheduler(tmpdir, monkeypatch):
+async def test_poll_scheduler_completed(tmpdir, monkeypatch):
     """Test that polling the status works."""
-
     tmpdir.chdir()
-
     monkeypatch.setattr("asyncssh.SSHClientConnection.run", mock_asyncssh_run(0, "COMPLETED", ""))
 
     executor = HPCExecutor(
@@ -544,8 +552,14 @@ async def test_poll_scheduler(tmpdir, monkeypatch):
     executor._remote_query_script_filepath = "mock.py"
     assert await executor._poll_scheduler(asyncssh.SSHClientConnection) == None
 
-    # Check canceled status reported
+
+@pytest.mark.asyncio
+async def test_poll_scheduler_canceled(tmpdir, monkeypatch):
+    """Test that polling the status works."""
+    tmpdir.chdir()
     monkeypatch.setattr("asyncssh.SSHClientConnection.run", mock_asyncssh_run(0, "CANCELED", ""))
+
+    # Check canceled status reported
     executor = HPCExecutor(
         username="test_user",
         address="test_address",
@@ -587,9 +601,7 @@ async def test_poll_scheduler(tmpdir, monkeypatch):
 @pytest.mark.asyncio
 async def test_fetch_result(tmpdir, monkeypatch):
     """Test querying results works as expected."""
-
     tmpdir.chdir()
-
     monkeypatch.setattr(
         "asyncssh.SSHClientConnection.run", mock_asyncssh_run(1, "stdout", "stderr")
     )
@@ -611,6 +623,8 @@ async def test_fetch_result(tmpdir, monkeypatch):
 async def test_fetch_result_v2(monkeypatch, tmpdir):
     """Test querying results works as expected."""
     tmpdir.chdir()
+    monkeypatch.setattr("asyncssh.SSHClientConnection.run", mock_asyncssh_run(0, "", ""))
+    monkeypatch.setattr("asyncssh.scp", mock_basic_async)
 
     executor = HPCExecutor(
         username="test_user",
@@ -618,9 +632,6 @@ async def test_fetch_result_v2(monkeypatch, tmpdir):
         ssh_key_file="ssh_key_file",
         remote_workdir="/federation/test_user/.cache/covalent",
     )
-
-    monkeypatch.setattr("asyncssh.SSHClientConnection.run", mock_asyncssh_run(0, "", ""))
-    monkeypatch.setattr("asyncssh.scp", mock_scp)
     executor._remote_result_filepath = Path("/path/to/test.txt")
     executor._task_results_dir = tmpdir
     executor._remote_stdout_filepath = Path(os.path.join(tmpdir, "stdout.txt"))
@@ -646,8 +657,10 @@ async def test_fetch_result_v2(monkeypatch, tmpdir):
 @pytest.mark.asyncio
 async def test_run(tmpdir, monkeypatch, proc_mock, conn_mock):
     """Test calling run works as expected."""
-
     tmpdir.chdir()
+    monkeypatch.setattr("asyncssh.scp", mock_basic_async)
+    monkeypatch.setattr("covalent_hpc_plugin.HPCExecutor._fetch_result", mock_fetch_result)
+
     executor = HPCExecutor(
         username="test_user",
         address="test_address",
@@ -683,24 +696,19 @@ async def test_run(tmpdir, monkeypatch, proc_mock, conn_mock):
     async def __client_connect_succeed(*_):
         return conn_mock
 
-    async def __fetch_result_succeed(*_):
-        return "result", "", "", None
-
     # patches
     patch_ccs = mock.patch.object(HPCExecutor, "_client_connect", new=__client_connect_succeed)
-    patch_qrs = mock.patch.object(HPCExecutor, "_fetch_result", new=__fetch_result_succeed)
 
     # check teardown method works as expected
-    monkeypatch.setattr("asyncssh.scp", mock_scp)
     proc_mock.stdout = "COMPLETED"
     proc_mock.stderr = ""
     proc_mock.returncode = 0
-    with patch_ccs, patch_qrs:
+    with patch_ccs:
         await executor.run(*dummy_args)
         await executor.teardown(dummy_metadata)
 
     # Test errors
     proc_mock.stderr = "FAILED"
-    with patch_ccs, patch_qrs:
+    with patch_ccs:
         with pytest.raises(RuntimeError, match="Making remote directory failed: FAILED"):
             await executor.run(*dummy_args)
