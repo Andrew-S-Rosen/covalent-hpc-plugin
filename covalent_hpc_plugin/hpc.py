@@ -492,18 +492,23 @@ fi
             raise ValueError("address is a required parameter.")
 
         # Read in the private key and certificate files
-        if self.cert_file:
-            if not self.ssh_key_file:
-                raise ValueError("ssh_key_file must be set if cert_file is set.")
+        self.cert_file = Path(self.cert_file).expanduser().resolve() if self.cert_file else None
+        self.ssh_key_file = (
+            Path(self.ssh_key_file).expanduser().resolve() if self.ssh_key_file else None
+        )
 
-            self.cert_file = Path(self.cert_file).expanduser().resolve()
-            client_keys = (
-                asyncssh.read_private_key(self.ssh_key_file),
-                asyncssh.read_certificate(self.cert_file),
-            )
-        elif self.ssh_key_file:
-            self.ssh_key_file = Path(self.ssh_key_file).expanduser().resolve()
-            client_keys = asyncssh.read_private_key(self.ssh_key_file)
+        if self.ssh_key_file:
+            if self.cert_file:
+                client_keys = [
+                    (
+                        asyncssh.read_private_key(self.ssh_key_file),
+                        asyncssh.read_certificate(self.cert_file),
+                    )
+                ]
+            else:
+                client_keys = [asyncssh.read_private_key(self.ssh_key_file)]
+        elif self.cert_file:
+            raise ValueError("ssh_key_file is required if cert_file is provided.")
         else:
             client_keys = []
 
@@ -680,7 +685,7 @@ fi
         print(stderr, file=sys.stderr)
 
         if exception:
-            raise RuntimeError(f"Fetching job result failed: {exception}")
+            raise RuntimeError(f"Fetching job result failed: {stderr}")
 
         app_log.debug("Preparing for teardown")
 
@@ -702,7 +707,7 @@ fi
             status: String describing the job status.
         """
 
-        if self._jobid is None:
+        if not hasattr(self, "_jobid"):
             return Result.NEW_OBJ
 
         proc = await conn.run(
@@ -799,17 +804,14 @@ fi
         Returns:
             None
         """
-        try:
-            app_log.debug("Performing cleanup on remote...")
-            conn = await self._client_connect()
-            await self._perform_cleanup(conn)
+        app_log.debug("Performing cleanup on remote...")
+        conn = await self._client_connect()
+        await self._perform_cleanup(conn)
 
-            app_log.debug("Closing SSH connection...")
-            conn.close()
-            await conn.wait_closed()
-            app_log.debug("SSH connection closed, teardown complete")
-        except Exception:
-            app_log.warning("Cleanup could not successfully complete. Nonfatal error.")
+        app_log.debug("Closing SSH connection...")
+        conn.close()
+        await conn.wait_closed()
+        app_log.debug("SSH connection closed, teardown complete")
 
     async def _perform_cleanup(self, conn: asyncssh.SSHClientConnection) -> None:
         """
