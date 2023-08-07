@@ -66,8 +66,8 @@ _EXECUTOR_PLUGIN_DEFAULTS = {
         "custom_attributes": None,
     },
     # Pre/Post-launch commands
-    "pre_launch_cmds": None,
-    "post_launch_cmds": None,
+    "pre_launch_cmds": [],
+    "post_launch_cmds": [],
     "shebang": "#!/bin/bash",
     # Remote Python env parameters
     "remote_python_exe": "python",
