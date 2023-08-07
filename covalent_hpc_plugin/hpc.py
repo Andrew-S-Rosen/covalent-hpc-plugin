@@ -55,10 +55,7 @@ _EXECUTOR_PLUGIN_DEFAULTS = {
     "environment": {},
     "resource_spec_kwargs": {
         "node_count": 1,
-        "exclusive_node_use": False,
-        "process_count": 1,
         "processes_per_node": 1,
-        "cpu_cores_per_process": 1,
         "gpu_cores_per_process": 0,
     },
     "job_attributes_kwargs": {
@@ -69,8 +66,8 @@ _EXECUTOR_PLUGIN_DEFAULTS = {
         "custom_attributes": None,
     },
     # Pre/Post-launch commands
-    "pre_launch_cmds": None,
-    "post_launch_cmds": None,
+    "pre_launch_cmds": [],
+    "post_launch_cmds": [],
     "shebang": "#!/bin/bash",
     # Remote Python env parameters
     "remote_python_exe": "python",
