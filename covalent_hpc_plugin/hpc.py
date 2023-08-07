@@ -731,7 +731,7 @@ conda activate {self.remote_conda_env}
         app_log.debug("Submitting the job")
         cmd = f"{self.remote_python_exe} {self._remote_jobscript_filepath}"
         if self.remote_conda_env:
-            cmd = f"conda activate {self.remote_conda_env} &&" + cmd
+            cmd = f"conda activate {self.remote_conda_env} &&{cmd}"
         proc = await conn.run(cmd)
 
         if proc.returncode != 0:
@@ -791,7 +791,7 @@ conda activate {self.remote_conda_env}
 
         cmd = f"{self.remote_python_exe} {self._remote_query_script_filepath}"
         if self.remote_conda_env:
-            cmd = f"conda activate {self.remote_conda_env} &&" + cmd
+            cmd = f"conda activate {self.remote_conda_env} &&{cmd}"
         proc = await conn.run(cmd)
 
         if proc.returncode != 0:
