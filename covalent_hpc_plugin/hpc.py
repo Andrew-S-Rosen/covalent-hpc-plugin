@@ -61,8 +61,7 @@ _EXECUTOR_PLUGIN_DEFAULTS = {
     "job_attributes_kwargs": {
         "duration": 10,  # minutes
         "queue_name": None,
-        "project_name": None,
-        "reservation_id": None,
+        "project_name": "",
         "custom_attributes": None,
     },
     # Pre/Post-launch commands
