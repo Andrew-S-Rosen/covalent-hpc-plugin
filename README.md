@@ -42,8 +42,11 @@ address = ""
 username = ""
 ssh_key_file = "~/.ssh/id_rsa"
 instance = "slurm"
-inherit_environment = true
 launcher = "single"
+inherit_environment = true
+pre_launch_cmds = []
+post_launch_cmds = []
+shebang = "#!/bin/bash"
 remote_python_exe = "python"
 remote_workdir = "~/covalent-workdir"
 create_unique_workdir = false
@@ -54,10 +57,7 @@ poll_freq = 60
 
 [executors.hpc.resource_spec_kwargs]
 node_count = 1
-exclusive_node_use = false
-process_count = 1
 processes_per_node = 1
-cpu_cores_per_process = 1
 gpu_cores_per_process = 0
 
 [executors.hpc.job_attributes_kwargs]
