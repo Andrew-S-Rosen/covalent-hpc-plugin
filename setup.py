@@ -33,7 +33,6 @@ setup_info = {
     "version": "0.0.2",
     "maintainer": "Andrew S. Rosen",
     "url": "https://github.com/arosen93/covalent-hpc-plugin",
-    "download_url": f"https://github.com/arosen93/covalent-hpc-plugin/covalent-hpc-plugin/archive/v{version}.tar.gz",
     "license": "GNU Affero GPL v3.0",
     "author": "Andrew S. Rosen",
     "description": "Covalent HPC Plugin",
