@@ -18,4 +18,8 @@
 #
 # Relief from the License may be granted by purchasing a commercial license.
 
+from importlib.metadata import version
+
 from .hpc import HPCExecutor
+
+__version__ = version("covalent-hpc-plugin")
