@@ -30,7 +30,7 @@ plugins_list = ["hpc = covalent_hpc_plugin.hpc"]
 setup_info = {
     "name": "covalent-hpc-plugin",
     "packages": find_packages("."),
-    "version": 0.0.2,
+    "version": "0.0.2",
     "maintainer": "Andrew S. Rosen",
     "url": "https://github.com/arosen93/covalent-hpc-plugin",
     "download_url": f"https://github.com/arosen93/covalent-hpc-plugin/covalent-hpc-plugin/archive/v{version}.tar.gz",
