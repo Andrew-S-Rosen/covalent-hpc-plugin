@@ -17,7 +17,7 @@
 To use this plugin with Covalent, simply install it using `pip` in whatever Python environment you use to run the Covalent server (your local machine by default):
 
 ```
-pip install git+https://github.com/Quantum-Accelerators/covalent-hpc-plugin.git
+pip install covalent-hpc-plugin
 ```
 
 ### HPC Environment
