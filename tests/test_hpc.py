@@ -434,8 +434,9 @@ def test_format_pre_launch_script(tmpdir):
     executor._remote_python_version = "3.8.5"
 
     pre_launch_str = executor._format_pre_launch_script()
+    assert pre_launch_str.split("\n")[0] == "#!/bin/bash"
     assert "3.8.5" in pre_launch_str
-    assert "source activate" not in pre_launch_str
+    assert "conda" not in pre_launch_str
 
     executor = HPCExecutor(
         username="test_user", address="test_address", instance="flux", remote_conda_env="myenv"
@@ -444,7 +445,7 @@ def test_format_pre_launch_script(tmpdir):
 
     pre_launch_str = executor._format_pre_launch_script()
     assert "3.8.5" in pre_launch_str
-    assert "source activate myenv" in pre_launch_str
+    assert "conda activate myenv" in pre_launch_str
 
     executor = HPCExecutor(
         username="test_user",
@@ -456,8 +457,25 @@ def test_format_pre_launch_script(tmpdir):
     executor._remote_python_version = "3.8.5"
 
     pre_launch_str = executor._format_pre_launch_script()
+    assert pre_launch_str.split("\n")[0] == "#!/bin/bash"
     assert "3.8.5" in pre_launch_str
-    assert "source activate myenv" in pre_launch_str
+    assert "conda activate myenv" in pre_launch_str
+    assert "echo hello\necho world\n" in pre_launch_str
+
+    executor = HPCExecutor(
+        username="test_user",
+        address="test_address",
+        instance="flux",
+        remote_conda_env="myenv",
+        pre_launch_cmds=["echo hello", "echo world"],
+        shebang=None,
+    )
+    executor._remote_python_version = "3.8.5"
+
+    pre_launch_str = executor._format_pre_launch_script()
+    assert "#!/bin/bash" not in pre_launch_str
+    assert "3.8.5" in pre_launch_str
+    assert "conda activate myenv" in pre_launch_str
     assert "echo hello\necho world\n" in pre_launch_str
 
 
@@ -471,7 +489,34 @@ def test_format_post_launch_script(tmpdir):
         post_launch_cmds=["echo hello", "echo world"],
     )
     post_launch_str = executor._format_post_launch_script()
-    assert post_launch_str == "echo hello\necho world\n"
+    assert post_launch_str.split("\n")[0] == "#!/bin/bash"
+    assert "echo hello\necho world\n" in post_launch_str
+    assert "conda" not in post_launch_str
+
+    executor = HPCExecutor(
+        username="test_user",
+        address="test_address",
+        instance="flux",
+        post_launch_cmds=["echo hello", "echo world"],
+        remote_conda_env="myenv",
+    )
+    post_launch_str = executor._format_post_launch_script()
+    assert post_launch_str.split("\n")[0] == "#!/bin/bash"
+    assert "echo hello\necho world\n" in post_launch_str
+    assert "conda activate myenv" in post_launch_str
+
+    executor = HPCExecutor(
+        username="test_user",
+        address="test_address",
+        instance="flux",
+        post_launch_cmds=["echo hello", "echo world"],
+        remote_conda_env="myenv",
+        shebang=None,
+    )
+    post_launch_str = executor._format_post_launch_script()
+    assert "#!/bin/bash" not in post_launch_str
+    assert "echo hello\necho world\n" in post_launch_str
+    assert "conda activate myenv" in post_launch_str
 
 
 @pytest.mark.asyncio

@@ -17,15 +17,15 @@
 To use this plugin with Covalent, simply install it using `pip` in whatever Python environment you use to run the Covalent server (your local machine by default):
 
 ```
-pip install git+https://github.com/arosen93/covalent-hpc-plugin.git
+pip install covalent-hpc-plugin
 ```
 
 ### HPC Environment
 
-Additionally, on the remote machine(s) where you plan to execute Covalent workflows with this plugin, ensure that the remote Python environment has both Covalent and PSI/J installed:
+Additionally, on the remote machine(s) where you plan to execute Covalent workflows with this plugin, ensure that the remote Python environment has PSI/J installed:
 
 ```
-pip install covalent psij-python
+pip install psij-python
 ```
 
 Note that the Python major and minor version numbers on both the local and remote machines must match to ensure the `cloudpickle` dependency can reliably (un)pickle the various objects.
@@ -34,7 +34,7 @@ Note that the Python major and minor version numbers on both the local and remot
 
 ### Default Configuration Parameters
 
-By default, when you install the `covalent-hpc-plugin` and `import covalent` for the first time, your Covalent [configuration file](https://docs.covalent.xyz/docs/user-documentation/how-to/customization/) (found at `~/.config/covalent/covalent.conf` by default) will automatically be updated to include the following sections. These are not all of the available parameters but are simply the default values.
+By default, when you install the `covalent-hpc-plugin` and run `import covalent` for the first time, your Covalent [configuration file](https://docs.covalent.xyz/docs/user-documentation/how-to/customization/) (found at `~/.config/covalent/covalent.conf` by default) will automatically be updated to include the following sections. These are not all of the available parameters but are simply the default values.
 
 ```
 [executors.hpc]
@@ -42,8 +42,11 @@ address = ""
 username = ""
 ssh_key_file = "~/.ssh/id_rsa"
 instance = "slurm"
-inherit_environment = true
 launcher = "single"
+inherit_environment = true
+pre_launch_cmds = []
+post_launch_cmds = []
+shebang = "#!/bin/bash"
 remote_python_exe = "python"
 remote_workdir = "~/covalent-workdir"
 create_unique_workdir = false
@@ -54,29 +57,26 @@ poll_freq = 60
 
 [executors.hpc.resource_spec_kwargs]
 node_count = 1
-exclusive_node_use = false
-process_count = 1
 processes_per_node = 1
-cpu_cores_per_process = 1
 gpu_cores_per_process = 0
 
 [executors.hpc.job_attributes_kwargs]
 duration = 10
 ```
 
-As you can see above, you can modify various parameters as-needed to better suit your needs, such as the `address` of the remote machine, the `username` to use when logging in, the `ssh_key_file` to use for authentication, the type of job scheduler (`instance`), and much more. Note that PSI/J is a common interface to many common job schedulers, so you only need to toggle the `instance` to switch between job schedulers.
+You can modify various parameters in the Covalent config file as-needed to better suit your needs, such as the `address` of the remote machine, the `username` to use when logging in, the `ssh_key_file` to use for authentication, the type of job scheduler (`instance`), and much more. Note that PSI/J is a common interface to many common job schedulers, so you only need to toggle the `instance` to switch between job schedulers.
 
 A full description of the various input parameters are described in the docstrings of the `HPCExecutor` class, reproduced below:
 
-https://github.com/arosen93/covalent-hpc-plugin/blob/4814844116bcacd8964c8bc5f136df4db59d0b60/covalent_hpc_plugin/hpc.py#L117-L189
+https://github.com/Quantum-Accelerators/covalent-hpc-plugin/blob/996fc51263efd69624ba9bb73f8564d2083a5509/covalent_hpc_plugin/hpc.py#L117-L189
 
 ### Defining Resource Specifications and Job Attributes
 
-Two of the most important sets of parameters are `resource_spec_kwargs` and `job_attributes_kwargs`, which used to specify the resources required for the job (e.g. number of nodes, number of processes per node, etc.) and the job attributes (e.g. duration, queue name, etc.), respectively. The `resource_spec_kwargs` is a dictionary of keyword arguments passed to PSI/J's [`ResourceSpecV1`](https://exaworks.org/psij-python/docs/v/0.9.0/.generated/psij.html#psij.resource_spec.ResourceSpecV1) class, whereas `job_attributes_kwargs` is a dictionary of keyword arguments passed to PSI/J's [`JobAttributes`](https://exaworks.org/psij-python/docs/v/0.9.0/.generated/psij.html#psij.JobAttributes) class. The allowed types are listed [here](https://github.com/arosen93/covalent-hpc-plugin/blob/367a84acd2114b31cf603f6b8a6e3f46c246c44a/covalent_hpc_plugin/hpc.py#L85-L111).
+Two of the most important sets of parameters are `resource_spec_kwargs` and `job_attributes_kwargs`, which used to specify the resources required for the job (e.g. number of nodes, number of processes per node, etc.) and the job attributes (e.g. duration, queue name, etc.), respectively. The `resource_spec_kwargs` is a dictionary of keyword arguments passed to PSI/J's [`ResourceSpecV1`](https://exaworks.org/psij-python/docs/v/0.9.0/.generated/psij.html#psij.resource_spec.ResourceSpecV1) class, whereas `job_attributes_kwargs` is a dictionary of keyword arguments passed to PSI/J's [`JobAttributes`](https://exaworks.org/psij-python/docs/v/0.9.0/.generated/psij.html#psij.JobAttributes) class. The allowed types are listed [here](https://github.com/Quantum-Accelerators/covalent-hpc-plugin/blob/996fc51263efd69624ba9bb73f8564d2083a5509/covalent_hpc_plugin/hpc.py#L88-L114).
 
 ### Using the Plugin in a Workflow: Approach 1
 
-With the configuration file appropriately set up, one can run a workflow on the HPC machine as follows:
+With the configuration file appropriately set up, one can run a workflow on the HPC machine s follows:
 
 ```python
 import covalent as ct

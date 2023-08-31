@@ -25,18 +25,14 @@ from setuptools import find_packages, setup
 
 site.ENABLE_USER_SITE = "--user" in sys.argv[1:]
 
-with open("VERSION") as f:
-    version = f.read().strip()
-
 plugins_list = ["hpc = covalent_hpc_plugin.hpc"]
 
 setup_info = {
     "name": "covalent-hpc-plugin",
     "packages": find_packages("."),
-    "version": version,
+    "version": "0.0.3",
     "maintainer": "Andrew S. Rosen",
     "url": "https://github.com/arosen93/covalent-hpc-plugin",
-    "download_url": f"https://github.com/arosen93/covalent-hpc-plugin/covalent-hpc-plugin/archive/v{version}.tar.gz",
     "license": "GNU Affero GPL v3.0",
     "author": "Andrew S. Rosen",
     "description": "Covalent HPC Plugin",
@@ -44,11 +40,11 @@ setup_info = {
     "long_description_content_type": "text/markdown",
     "include_package_data": True,
     "install_requires": [
-        "psij-python>=0.9.0",
         "asyncssh>=2.10.1",
         "aiofiles>=0.8.0",
         "cloudpickle>=2.0.0",
         "covalent>=0.220.0",
+        "psij-python>=0.9.0",
     ],
     "classifiers": [
         "Development Status :: 4 - Beta",
