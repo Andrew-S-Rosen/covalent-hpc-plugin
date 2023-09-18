@@ -104,7 +104,7 @@ class JobAttributesHint(TypedDict):
     Reference: https://exaworks.org/psij-python/docs/v/0.9.0/.generated/psij.html#psij.JobAttributes
     """
 
-    duration: datetime.timedelta | int
+    duration: datetime.timedelta | int | float
     queue_name: str | None
     project_name: str | None
     reservation_id: str | None
@@ -350,12 +350,6 @@ class HPCExecutor(AsyncBaseExecutor):
             else _EXECUTOR_PLUGIN_DEFAULTS["poll_freq"]
         )
 
-        # Validate/clean up parameters
-        if isinstance(self.job_attributes_kwargs.get("duration"), int):
-            self.job_attributes_kwargs["duration"] = datetime.timedelta(
-                minutes=self.job_attributes_kwargs["duration"]
-            )
-
         if self.poll_freq < 30:
             print("Polling frequency will be increased to 30 seconds.")
             self.poll_freq = 30
@@ -401,6 +395,13 @@ with open(Path("{self._remote_result_filepath}").expanduser().resolve(), "wb") a
         Returns:
             String representation of the Python script to make/execute the PSI/J Job object.
         """
+        
+        # Validate/clean up parameters
+        if not isinstance(self.job_attributes_kwargs.get("duration"), datetime.timedelta):
+            self.job_attributes_kwargs["duration"] = datetime.timedelta(
+                minutes=self.job_attributes_kwargs["duration"]
+            )
+
         resources_string = (
             f"resources=ResourceSpecV1(**{self.resource_spec_kwargs}),"
             if self.resource_spec_kwargs
