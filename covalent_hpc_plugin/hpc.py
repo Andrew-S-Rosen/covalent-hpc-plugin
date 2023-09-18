@@ -395,9 +395,11 @@ with open(Path("{self._remote_result_filepath}").expanduser().resolve(), "wb") a
         Returns:
             String representation of the Python script to make/execute the PSI/J Job object.
         """
-        
+
         # Fix datetime serialization issue
-        if self.job_attributes_kwargs.get("duration") and not isinstance(self.job_attributes_kwargs.get("duration"), datetime.timedelta):
+        if self.job_attributes_kwargs.get("duration") and not isinstance(
+            self.job_attributes_kwargs.get("duration"), datetime.timedelta
+        ):
             self.job_attributes_kwargs["duration"] = datetime.timedelta(
                 minutes=self.job_attributes_kwargs["duration"]
             )
