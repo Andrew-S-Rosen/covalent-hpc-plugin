@@ -164,7 +164,7 @@ def test_init_nondefaults(tmpdir):
     assert executor.inherit_environment == False
     assert executor.environment == {"hello": "world"}
     assert executor.resource_spec_kwargs == {"node_count": 2}
-    assert executor.job_attributes_kwargs == {"duration": timedelta(minutes=20)}
+    assert executor.job_attributes_kwargs == {"duration": 20}
     assert executor.launcher == "multiple"
     assert executor.remote_python_exe == "python2"
     assert executor.remote_conda_env == "myenv"
@@ -322,10 +322,21 @@ def test_datetime(tmpdir):
         ssh_key_file="~/.ssh/id_rsa",
         job_attributes_kwargs={"duration": 20},
     )
+    dispatch_id = "259efebf-2c69-4981-a19e-ec90cdffd026"
+    task_id = 3
+    executor._name = f"{dispatch_id}-{task_id}"
+    executor._remote_pickle_script_filepath = f"script-{dispatch_id}-{task_id}.py"
+    executor._job_remote_workdir = tmpdir
+    executor._remote_stdout_filepath = f"stdout-{dispatch_id}-{task_id}.log"
+    executor._remote_stderr_filepath = f"stderr-{dispatch_id}-{task_id}.log"
+    executor._remote_pre_launch_filepath = f"pre-launch-{dispatch_id}-{task_id}.sh"
+
+    submit_script_str = executor._format_job_script()
     assert (
         "attributes=JobAttributes(**{'duration': datetime.timedelta(seconds=1200)})"
         in submit_script_str
     )
+    
 def test_format_submit_script_minimal(tmpdir):
     """Test that the shell script (in string form) which is to be submitted on
     the remote server is created with no errors."""
