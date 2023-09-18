@@ -314,7 +314,7 @@ def test_format_submit_script(tmpdir):
         and executor._remote_pre_launch_filepath in submit_script_str
     )
 
-def test_datetime(tmpdir)
+def test_datetime(tmpdir):
     tmpdir.chdir()
     executor = HPCExecutor(
         username="test_user",
