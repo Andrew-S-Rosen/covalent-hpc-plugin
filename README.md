@@ -26,7 +26,7 @@ pip install covalent-hpc-plugin
 Additionally, on the remote machine(s) where you plan to execute Covalent workflows with this plugin, ensure that the remote Python environment has PSI/J installed:
 
 ```
-pip install psij-python
+pip install git+https://github.com/ExaWorks/psij-python.git
 ```
 
 Note that the Python major and minor version numbers on both the local and remote machines must match to ensure the `cloudpickle` dependency can reliably (un)pickle the various objects.
