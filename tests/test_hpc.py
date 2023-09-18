@@ -314,7 +314,18 @@ def test_format_submit_script(tmpdir):
         and executor._remote_pre_launch_filepath in submit_script_str
     )
 
-
+def test_datetime(tmpdir)
+    tmpdir.chdir()
+    executor = HPCExecutor(
+        username="test_user",
+        address="test_address",
+        ssh_key_file="~/.ssh/id_rsa",
+        job_attributes_kwargs={"duration": 20},
+    )
+    assert (
+        "attributes=JobAttributes(**{'duration': datetime.timedelta(seconds=1200)})"
+        in submit_script_str
+    )
 def test_format_submit_script_minimal(tmpdir):
     """Test that the shell script (in string form) which is to be submitted on
     the remote server is created with no errors."""
