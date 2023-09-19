@@ -119,7 +119,6 @@ executor = ct.executor.HPCExecutor(
         "project_name": "AccountName",
     },
     launcher="single",
-    remote_conda_env="myenv",
     remote_workdir="~/covalent-workdir",
 )
 
