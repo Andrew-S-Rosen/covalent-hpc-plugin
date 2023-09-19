@@ -88,7 +88,7 @@ The allowed types are listed [here](https://github.com/Quantum-Accelerators/cova
 
 ### Using the Plugin in a Workflow: Approach 1
 
-With the configuration file appropriately set up, one can run a workflow on the HPC machine s follows:
+With the configuration file appropriately set up, one can run a workflow on the HPC machine as follows:
 
 ```python
 import covalent as ct
