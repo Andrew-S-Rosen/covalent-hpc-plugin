@@ -20,6 +20,12 @@ To use this plugin with Covalent, simply install it using `pip` in whatever Pyth
 pip install covalent-hpc-plugin
 ```
 
+Run the following to have Covalent automatically register the plugin:
+
+```python
+import covalent as ct
+```
+
 ### HPC Environment
 
 Additionally, on the remote machine(s) where you plan to execute Covalent workflows with this plugin, ensure that the remote Python environment has Covalent and PSI/J installed:
