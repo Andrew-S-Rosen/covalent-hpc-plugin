@@ -23,7 +23,7 @@ pip install covalent-hpc-plugin
 Run the following in Python to have Covalent automatically register the plugin:
 
 ```python
-import covalent as ct
+import covalent
 ```
 
 ### HPC Environment
