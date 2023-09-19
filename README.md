@@ -148,7 +148,7 @@ result = ct.get_result(dispatch_id)
 
 ### Working Example: Perlmutter
 
-The following is a minimal working example to submit a Covalent job on NERSC's [Perlmutter](https://docs.nersc.gov/systems/perlmutter/) machine. This example assumes you have an account named "UserName", a project named "ProjectName", and a Conda environment named `myenv` on Perlmutter with both Covalent and PSI/J installed. It also assumes that you have used the [sshproxy](https://docs.nersc.gov/connect/mfa/#sshproxy) utility to generate a certificate file in order to bypass the need for multi-factor authentication.
+The following is a minimal working example to submit a Covalent job on NERSC's [Perlmutter](https://docs.nersc.gov/systems/perlmutter/) machine. It assumes that you have used the [sshproxy](https://docs.nersc.gov/connect/mfa/#sshproxy) utility to generate a certificate file in order to circumvent the need for multi-factor authentication for each login.
 
 ```python
 import covalent as ct
