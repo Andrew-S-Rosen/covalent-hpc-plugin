@@ -108,7 +108,7 @@ result = ct.get_result(dispatch_id)
 
 ### Using the Plugin in a Workflow: Approach 2
 
-If you wish to modify the various parameters within your Python script rather than solely relying on the the Covalent configuration file, it is possible to do that as well by instantiating a custom instance of the `HPCExecutor` class. An example with some commonly used parameters is shown below. By defauly, any parameters not specified in the `HPCExecutor` will be inherited from the configuration file.
+If you wish to modify the various parameters within your Python script rather than solely relying on the the Covalent configuration file, it is possible to do that as well by instantiating a custom instance of the `HPCExecutor` class. An example with some commonly used parameters is shown below. By default, any parameters not specified in the `HPCExecutor` will be inherited from the configuration file.
 
 ```python
 import covalent as ct
