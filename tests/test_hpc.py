@@ -128,6 +128,7 @@ def test_init_defaults(tmpdir):
         Path(get_config("dispatcher.cache_dir")).expanduser().resolve()
     )
     assert executor.poll_freq == 60
+    assert executor.cleanup is True
 
 
 def test_init_nondefaults(tmpdir):
@@ -155,6 +156,7 @@ def test_init_nondefaults(tmpdir):
         create_unique_workdir=True,
         cache_dir=tmpdir / "my-cache-dir",
         poll_freq=90,
+        cleanup=False,
     )
     assert executor.username == username
     assert executor.address == address
@@ -172,6 +174,7 @@ def test_init_nondefaults(tmpdir):
     assert executor.create_unique_workdir == True
     assert executor.cache_dir == tmpdir / "my-cache-dir"
     assert executor.poll_freq == 90
+    assert executor.cleanup is False
     assert os.path.exists(tmpdir / "my-cache-dir")
 
 

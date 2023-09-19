@@ -76,6 +76,7 @@ _EXECUTOR_PLUGIN_DEFAULTS = {
     "create_unique_workdir": False,
     "cache_dir": str(Path(get_config("dispatcher.cache_dir")).expanduser().resolve()),
     "poll_freq": 60,
+    "cleanup": True,
 }
 _DEFAULT = object()
 
@@ -147,6 +148,9 @@ class HPCExecutor(AsyncBaseExecutor):
             Defaults to the dispatcher's cache directory.
         poll_freq: Frequency with which to poll a submitted job. Defaults to 60. Note that settings this value
             to be significantly smaller is not advised, as it will cause too frequent SSHs into the remote machine.
+        cleanup: Whether to clean up the temporary job submission files when done. Set this to False for debugging.
+            Note that temporary files will be made both in the `remote_workdir` and in `~/.psij`. The latter will
+            not be cleaned up by the plugin.
         log_stdout: Path to file to log stdout to. Defaults to "" (i.e. no logging).
         log_stderr: Path to file to log stderr to. Defaults to "" (i.e. no logging).
         time_limit: time limit for the task (in seconds). Defaults to -1 (i.e. no time limit). Note that this is
@@ -180,6 +184,7 @@ class HPCExecutor(AsyncBaseExecutor):
         create_unique_workdir: bool = _DEFAULT,
         cache_dir: str | Path = _DEFAULT,
         poll_freq: int = _DEFAULT,
+        cleanup: bool = _DEFAULT,
         # AsyncBaseExecutor parameters
         log_stdout: str = "",
         log_stderr: str = "",
@@ -350,6 +355,14 @@ class HPCExecutor(AsyncBaseExecutor):
             else _EXECUTOR_PLUGIN_DEFAULTS["poll_freq"]
         )
 
+        self.cleanup = (
+            cleanup
+            if cleanup != _DEFAULT
+            else hpc_config["cleanup"]
+            if "cleanup" in hpc_config
+            else _EXECUTOR_PLUGIN_DEFAULTS["cleanup"]
+        )
+        
         if self.poll_freq < 30:
             print("Polling frequency will be increased to 30 seconds.")
             self.poll_freq = 30
@@ -887,14 +900,15 @@ conda activate {self.remote_conda_env}
         Returns:
             None
         """
-        app_log.debug("Performing cleanup on remote...")
-        conn = await self._client_connect()
-        await self._perform_cleanup(conn)
-
-        app_log.debug("Closing SSH connection...")
-        conn.close()
-        await conn.wait_closed()
-        app_log.debug("SSH connection closed, teardown complete")
+        if self.cleanup:
+            app_log.debug("Performing cleanup on remote...")
+            conn = await self._client_connect()
+            await self._perform_cleanup(conn)
+    
+            app_log.debug("Closing SSH connection...")
+            conn.close()
+            await conn.wait_closed()
+            app_log.debug("SSH connection closed, teardown complete")
 
     async def _perform_cleanup(self, conn: asyncssh.SSHClientConnection) -> None:
         """
