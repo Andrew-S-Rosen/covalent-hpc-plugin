@@ -31,8 +31,7 @@ import covalent
 Additionally, on the remote machine(s) where you plan to execute Covalent workflows with this plugin, ensure that the remote Python environment has Covalent and PSI/J installed:
 
 ```
-pip install covalent
-pip install psij-python
+pip install covalent psij-python
 ```
 
 Note that the Python major and minor version numbers on both the local and remote machines must match to ensure reliable (un)pickling of the various objects.
