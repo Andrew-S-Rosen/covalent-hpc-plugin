@@ -20,7 +20,7 @@ To use this plugin with Covalent, simply install it using `pip` in whatever Pyth
 pip install covalent-hpc-plugin
 ```
 
-Run the following to have Covalent automatically register the plugin:
+Run the following in Python to have Covalent automatically register the plugin:
 
 ```python
 import covalent as ct
