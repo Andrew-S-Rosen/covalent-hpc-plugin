@@ -148,14 +148,14 @@ class HPCExecutor(AsyncBaseExecutor):
             Defaults to the dispatcher's cache directory.
         poll_freq: Frequency with which to poll a submitted job. Defaults to 60. Note that settings this value
             to be significantly smaller is not advised, as it will cause too frequent SSHs into the remote machine.
+        cleanup: Whether to clean up the temporary job submission files when done. Set this to False for debugging.
+            Note that temporary files will be made both in the `remote_workdir` and in `~/.psij`. The latter will
+            not be cleaned up by the plugin.
         log_stdout: Path to file to log stdout to. Defaults to "" (i.e. no logging).
         log_stderr: Path to file to log stderr to. Defaults to "" (i.e. no logging).
         time_limit: time limit for the task (in seconds). Defaults to -1 (i.e. no time limit). Note that this is
             not the same as the job scheduler's time limit, which is set in `job_attributes_kwargs`.
         retries: Number of times to retry execution upon failure. Defaults to 0 (i.e. no retries).
-        cleanup: Whether to clean up the temporary job submission files when done. Set this to False for debugging.
-            Note that temporary files will be made both in the `remote_workdir` and in `~/.psij`. The latter will
-            not be cleaned up by the plugin.
     """
 
     def __init__(
@@ -184,12 +184,12 @@ class HPCExecutor(AsyncBaseExecutor):
         create_unique_workdir: bool = _DEFAULT,
         cache_dir: str | Path = _DEFAULT,
         poll_freq: int = _DEFAULT,
+        cleanup: bool = _DEFAULT,
         # AsyncBaseExecutor parameters
         log_stdout: str = "",
         log_stderr: str = "",
         time_limit: int = -1,
         retries: int = 0,
-        cleanup: bool = None,
     ):
         super().__init__(
             log_stdout=log_stdout, log_stderr=log_stderr, time_limit=time_limit, retries=retries
