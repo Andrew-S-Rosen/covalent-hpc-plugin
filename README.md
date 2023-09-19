@@ -105,7 +105,7 @@ import covalent as ct
 executor = ct.executor.HPCExecutor(
     address="coolmachine.university.edu",
     username="UserName",
-    ssh_key_file="~/.ssh/id_resa",
+    ssh_key_file="~/.ssh/id_rsa",
     instance="slurm",
     remote_conda_env="myenv",
     environment={"HELLO": "WORLD"},
