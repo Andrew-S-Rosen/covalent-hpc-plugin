@@ -75,7 +75,7 @@ You can modify various parameters in the Covalent config file as-needed to bette
 
 A full description of the various input parameters are described in the docstrings of the `HPCExecutor` class, reproduced below:
 
-https://github.com/Quantum-Accelerators/covalent-hpc-plugin/blob/996fc51263efd69624ba9bb73f8564d2083a5509/covalent_hpc_plugin/hpc.py#L117-L189
+https://github.com/Quantum-Accelerators/covalent-hpc-plugin/blob/25785d0c546851c4b11e5c227f2e7aebb12aba8c/covalent_hpc_plugin/hpc.py#L115-L159
 
 ### Defining Resource Specifications and Job Attributes
 
