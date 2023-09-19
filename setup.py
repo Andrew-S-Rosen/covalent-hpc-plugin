@@ -43,7 +43,7 @@ setup_info = {
         "asyncssh>=2.10.1",
         "aiofiles>=0.8.0",
         "cloudpickle>=2.0.0",
-        "covalent>=0.220.0",
+        "covalent>=0.226.0rc0",
         "psij-python>=0.9.0",
     ],
     "classifiers": [
