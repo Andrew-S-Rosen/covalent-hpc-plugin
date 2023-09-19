@@ -17,7 +17,6 @@
 To use this plugin with Covalent, simply install it using `pip` in whatever Python environment you use to run the Covalent server (your local machine by default):
 
 ```
-pip install git+https://github.com/ExaWorks/psij-python.git
 pip install covalent-hpc-plugin
 ```
 
@@ -27,7 +26,7 @@ Additionally, on the remote machine(s) where you plan to execute Covalent workfl
 
 ```
 pip install covalent
-pip install git+https://github.com/ExaWorks/psij-python.git
+pip install psij-python
 ```
 
 Note that the Python major and minor version numbers on both the local and remote machines must match to ensure the `cloudpickle` dependency can reliably (un)pickle the various objects.
