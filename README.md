@@ -29,7 +29,7 @@ pip install covalent
 pip install psij-python
 ```
 
-Note that the Python major and minor version numbers on both the local and remote machines must match to ensure the `cloudpickle` dependency can reliably (un)pickle the various objects.
+Note that the Python major and minor version numbers on both the local and remote machines must match to ensure reliable (un)pickling of the various objects.
 
 ## Usage
 
