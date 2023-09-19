@@ -104,7 +104,7 @@ class JobAttributesHint(TypedDict):
     Reference: https://exaworks.org/psij-python/docs/v/0.9.0/.generated/psij.html#psij.JobAttributes
     """
 
-    duration: datetime.timedelta | int | float
+    duration: datetime.timedelta | int | float # in minutes when type int | float
     queue_name: str | None
     project_name: str | None
     reservation_id: str | None
