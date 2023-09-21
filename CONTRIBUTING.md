@@ -1,5 +1,4 @@
-First Steps
-===========
+# First Steps
 
 To get started contributing to Covalent, you should fork this repository for your own development. (Learn more about [how to fork a repo](https://docs.github.com/en/get-started/quickstart/fork-a-repo).)
 
@@ -19,6 +18,7 @@ conda activate covalent-dev
 ```
 
 Install Covalent's core requirements as well as the pre-commit package:
+
 ```shell
 conda install setuptools pip
 pip install cova pre-commit
@@ -26,34 +26,36 @@ pre-commit install
 ```
 
 Start the Covalent servers in developer mode:
+
 ```shell
 covalent start -d
 ```
 
 You are now ready to begin development on your custom executor plugin.
 
-Style Guide
-===========
+# Style Guide
 
 Contributing to the Covalent codebase should be an easy process, but there are a few things to consider to ensure your contributions meet the minimum software quality standards. The main points are explained below, and they are roughly grouped into the following categories: stylization, documentation, and testing.
 
 ## General Guidelines
--   Use American English spellings and grammar.  Documentation with typos will be rejected.
--   Use complete sentences with capitalization and punctuation, except in short descriptions of arguments, return values, attributes, and exceptions in source code.
--   Multi-sentence argument descriptions, or longer sentence fragments with mid-sentence punctuation marks, should use capitalization and punctuation.
--   Comments may be written more informally than docstrings, as long as consistency and clarity are maintained. Capitalization and punctuation should be used with multi-sentence comments to aid with readability.
--   Avoid complex stylization in docstrings; these must be readable for users in a terminal/Jupyter environment.
--   Assume the user does not have access to any source files.
--   Variables must be restricted to the scope in which they are used; avoid use of global variables except when absolutely necessary.
--   Limit all lines to 99 characters.  Use a four-character indent for Python files; bash files use a two-character indent, and C uses a tab indent. These will be adjusted as needed by the pre-commit hooks.
--   Input parameters to scripts should be passed using flags, rather than positional arguments. This may be implemented using the `getopt` libraries.  Bash scripts may accept parameters passed with or without flags.
--   Functions should perform a single task.  Generally functions should not contain more than 30 lines of code, not including line breaks, comments, and whitespace.
--   Use the `pylint` tool to improve the quality of your code. Contributions which decrease the codebase's code quality will be rejected.
--   All changes must be documented in the [changelog](./CHANGELOG.md) as a new version.
--   New features or changes to UX must include a usage description in the form of a [how-to guide](https://covalent.readthedocs.io/en/latest/how_to/index.html).
--   All software source files should contain the copyright boilerplate displayed below, which includes a docstring describing the purpose of the file.
+
+- Use American English spellings and grammar.  Documentation with typos will be rejected.
+- Use complete sentences with capitalization and punctuation, except in short descriptions of arguments, return values, attributes, and exceptions in source code.
+- Multi-sentence argument descriptions, or longer sentence fragments with mid-sentence punctuation marks, should use capitalization and punctuation.
+- Comments may be written more informally than docstrings, as long as consistency and clarity are maintained. Capitalization and punctuation should be used with multi-sentence comments to aid with readability.
+- Avoid complex stylization in docstrings; these must be readable for users in a terminal/Jupyter environment.
+- Assume the user does not have access to any source files.
+- Variables must be restricted to the scope in which they are used; avoid use of global variables except when absolutely necessary.
+- Limit all lines to 99 characters.  Use a four-character indent for Python files; bash files use a two-character indent, and C uses a tab indent. These will be adjusted as needed by the pre-commit hooks.
+- Input parameters to scripts should be passed using flags, rather than positional arguments. This may be implemented using the `getopt` libraries.  Bash scripts may accept parameters passed with or without flags.
+- Functions should perform a single task.  Generally functions should not contain more than 30 lines of code, not including line breaks, comments, and whitespace.
+- Use the `pylint` tool to improve the quality of your code. Contributions which decrease the codebase's code quality will be rejected.
+- All changes must be documented in the [changelog](./CHANGELOG.md) as a new version.
+- New features or changes to UX must include a usage description in the form of a [how-to guide](https://covalent.readthedocs.io/en/latest/how_to/index.html).
+- All software source files should contain the copyright boilerplate displayed below, which includes a docstring describing the purpose of the file.
 
 ## Source Code Boilerplate
+
 All files submitted must contain the following before all other lines:
 
 ```python
@@ -61,21 +63,18 @@ All files submitted must contain the following before all other lines:
 #
 # This file is part of Covalent.
 #
-# Licensed under the GNU Affero General Public License 3.0 (the "License").
-# A copy of the License may be obtained with this software package or at
+# Licensed under the Apache License 2.0 (the "License"). A copy of the
+# License may be obtained with this software package or at
 #
-#      https://www.gnu.org/licenses/agpl-3.0.en.html
+#     https://www.apache.org/licenses/LICENSE-2.0
 #
-# Use of this file is prohibited except in compliance with the License. Any
-# modifications or derivative works of this file must retain this copyright
-# notice, and modified files must contain a notice indicating that they have
-# been altered from the originals.
-#
-# Covalent is distributed in the hope that it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-# FITNESS FOR A PARTICULAR PURPOSE. See the License for more details.
-#
-# Relief from the License may be granted by purchasing a commercial license.
+# Use of this file is prohibited except in compliance with the License.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 
 """Single-sentence description of the file."""
 ```
@@ -89,20 +88,22 @@ set -eu -o pipefail
 and files should end with an explicit exit code, e.g., `exit 0` indicates a successful exit.
 
 ## Naming Conventions
--   Class names use `CamelCase`
--   Functions, variables, filenames, and directories use `snake_case`
--   Constants use `SCREAMING_SNAKE_CASE`
--   Acronyms are a sequence of all-capitalized letters
--   Names should be descriptive and concise
--   Mathematical variables (“x”) may be used only when they are documented. This may be appropriate for standard variables used in literature.
--   Avoid using “I”, “l”, and “O” as variable names
--   Private objects and methods/functions of a class should start with an underscore, e.g., `self._variable` or `self._internal_function()`. A "private" class object is one that should not be used outside of the class definition. Unlike C++, Python has no way of stopping a user/developer from accessing or modifying any object in the class (hence the quotations around private). The underscore lets them know the object is for internal use only and that its internal usage could change without warning.
+
+- Class names use `CamelCase`
+- Functions, variables, filenames, and directories use `snake_case`
+- Constants use `SCREAMING_SNAKE_CASE`
+- Acronyms are a sequence of all-capitalized letters
+- Names should be descriptive and concise
+- Mathematical variables (“x”) may be used only when they are documented. This may be appropriate for standard variables used in literature.
+- Avoid using “I”, “l”, and “O” as variable names
+- Private objects and methods/functions of a class should start with an underscore, e.g., `self._variable` or `self._internal_function()`. A "private" class object is one that should not be used outside of the class definition. Unlike C++, Python has no way of stopping a user/developer from accessing or modifying any object in the class (hence the quotations around private). The underscore lets them know the object is for internal use only and that its internal usage could change without warning.
 
 ## References
--   Add references to other code units where applicable. Use the roles :class:, :func:, :attr:, :meth:, and :mod: so that Sphinx generates a cross-reference in generated documentation.
--   Add URL references to code taken from or inspired by code found online.
--   All digital references must specify a DOI, ISBN, arXiv ID, or URL, in that order of preference.
--   Add references to literature where applicable.  Academic journal articles should be in the following format:
+
+- Add references to other code units where applicable. Use the roles :class:, :func:, :attr:, :meth:, and :mod: so that Sphinx generates a cross-reference in generated documentation.
+- Add URL references to code taken from or inspired by code found online.
+- All digital references must specify a DOI, ISBN, arXiv ID, or URL, in that order of preference.
+- Add references to literature where applicable.  Academic journal articles should be in the following format:
 
 ```
 A.B. Lastname1, C. Lastname2 and D. Lastname3. Title of Article. Jour. Abbrev. 1, 123456 (2021).
@@ -110,7 +111,7 @@ doi: 10.1001/abcdef
 arXiv: quant-ph/000000
 ```
 
-Standard journal abbreviations can be found [here](https://www.library.caltech.edu/journal-title-abbreviations).  In the above example, ‘1’ refers to the volume number, and ‘123456’ refers to the first page number of the article.  For six or more authors use the first author’s name followed by *et al.*  References to other material should follow the *apsrev4-1* bibliography style and generally follow the same stylization as that for articles.  The DOI, if one exists, should be on the first line following a reference; if an arXiv ID also exists it may be added on a line following the DOI.
+Standard journal abbreviations can be found [here](https://www.library.caltech.edu/journal-title-abbreviations).  In the above example, ‘1’ refers to the volume number, and ‘123456’ refers to the first page number of the article.  For six or more authors use the first author’s name followed by *et al.*  References to other material should follow the _apsrev4-1_ bibliography style and generally follow the same stylization as that for articles.  The DOI, if one exists, should be on the first line following a reference; if an arXiv ID also exists it may be added on a line following the DOI.
 
 ## Python Docstrings
 
@@ -162,9 +163,9 @@ def func(arg1: <arg1_type>, arg2: <arg2_type>, arg3: <arg3_type> = "default_valu
     """
 ```
 
--   Relevant mathematical expressions should be formatted using inline latex and placed in the multi-line description.  Important or long equations may go on their own line.
--   Algorithmic functions should contain details about scaling with time and/or problem size, e.g., O(N); this information also goes in the multi-line description.
--   `<arg1_type>`, `<arg2_type>`, `<arg3_type>` and `<return_type>` are placeholders for the type hints of `arg1`, `arg2`, `arg3` and the return value.
+- Relevant mathematical expressions should be formatted using inline latex and placed in the multi-line description.  Important or long equations may go on their own line.
+- Algorithmic functions should contain details about scaling with time and/or problem size, e.g., O(N); this information also goes in the multi-line description.
+- `<arg1_type>`, `<arg2_type>`, `<arg3_type>` and `<return_type>` are placeholders for the type hints of `arg1`, `arg2`, `arg3` and the return value.
 
 ### Classes
 
@@ -179,11 +180,12 @@ class MyClass:
     """
 ```
 
--   Include public attributes here in the `Attributes` section, using the same formatting as a function's `Args` section.
--   Do not list methods in the class docstring.
--   Private attributes of a class do not need to be described in the class docstring. These are class objects that should not be used outside of the class definition.
+- Include public attributes here in the `Attributes` section, using the same formatting as a function's `Args` section.
+- Do not list methods in the class docstring.
+- Private attributes of a class do not need to be described in the class docstring. These are class objects that should not be used outside of the class definition.
 
 ### Variables
+
 Variables may optionally be documented using a docstring below their definition:
 
 ```python
@@ -211,15 +213,15 @@ fi
 
 ## Code Examples
 
--   You may assume that ‘covalent’ is imported as ‘ct’. All other imports must be specified explicitly.
--   For single line statements and associated output, use Python console syntax (pycon):
+- You may assume that ‘covalent’ is imported as ‘ct’. All other imports must be specified explicitly.
+- For single line statements and associated output, use Python console syntax (pycon):
 
 ```python
 >>> ct.dispatch(pipeline)(**params) # Dispatching a workflow returns a unique dispatch id.
 '8a7bfe54-d3c7-4ca1-861b-f55af6d5964a'
 ```
 
--   Multi-line statements should use “...” to indicate continuation lines:
+- Multi-line statements should use “...” to indicate continuation lines:
 
 ```python
 >>> dispatch_ids = []
@@ -228,7 +230,7 @@ fi
 ...     dispatch_ids.append(ct.dispatch(pipeline)(a=a))
 ```
 
--   For larger, more complicated code blocks, use standard Python code-block with Python console syntax for displaying output:
+- For larger, more complicated code blocks, use standard Python code-block with Python console syntax for displaying output:
 
 ```python
 >>> @ct.electron
@@ -260,15 +262,15 @@ dispatch_id: e4efd26c-240d-4ab1-9826-26ada91e429f
 
 ## Code Comments
 
--   Comments are used to explain the implementation or algorithm.  Assume the reader is a proficient programmer and understands basic principles and syntax.
--   Self-document code when possible.  Code should be clear and concise, flow logically, and be organized into stanzas according to what’s happening.  This helps avoid *unnecessary* comments.
--   Comments should occur directly above the code that is being described.  Use a single space between the "#" character and the start of text.
+- Comments are used to explain the implementation or algorithm.  Assume the reader is a proficient programmer and understands basic principles and syntax.
+- Self-document code when possible.  Code should be clear and concise, flow logically, and be organized into stanzas according to what’s happening.  This helps avoid _unnecessary_ comments.
+- Comments should occur directly above the code that is being described.  Use a single space between the "#" character and the start of text.
 
 ## Python Type Hints
 
 Type hints should be used for input parameters in functions and classes, as well as for return values as well. The typing module should be used for several circumstances:
 
-- When a parameter or return type is a container for multiple parameters.  Examples include a dict mapping strings to floats uses, `Dict[str,float]`, or a list of integers uses, `List[int]`
+- When a parameter or return type is a container for multiple parameters. Examples include a dict mapping strings to floats uses, `Dict[str,float]`, or a list of integers uses, `List[int]`
 
 - Nested Types: A dict mapping an integer to a list of floats is written `Dict[int,List[float]]`
 
@@ -361,15 +363,14 @@ For more urgent messages, denoting errors which will stop the program from execu
 
 The level of warning seen when executing code depends on the user's environment variable `LOGLEVEL`. Choices are:
 
-
-|Level|Numeric value|
-|-----|-------------|
-|CRITICAL|50|
-|ERROR|40|
-|WARNING|30|
-|INFO|20|
-|DEBUG|10|
-|NOTSET|0|
+| Level    | Numeric value |
+| -------- | ------------- |
+| CRITICAL | 50            |
+| ERROR    | 40            |
+| WARNING  | 30            |
+| INFO     | 20            |
+| DEBUG    | 10            |
+| NOTSET   | 0             |
 
 The lower the level, the more log messages are shown to the user. Executing, for example,
 
@@ -380,6 +381,7 @@ export LOGLEVEL=INFO
 guarantees all info, warning, error and critical messages will be shown. If this environment variable is not set, the default value of `WARNING` is used.
 
 ## Writing Tests
+
 All feature changes and bug fixes should be accompanied by tests. These can be a
 combination of unit, integration and functional tests. Unit tests are the highest priority and
 should be the bulk of the tests in the repo. Following that, integration tests, checking that
@@ -407,6 +409,7 @@ Running the entire test suite will take a while and for the purpose of developme
 focus on more specific tests using syntax in the examples shown below.
 
 1. To run a specific test module:
+
 ```buildoutcfg
 pytest tests/covalent_dispatcher_tests/_executor/local_test.py -vv -s
 ```
@@ -417,7 +420,6 @@ pytest tests/covalent_dispatcher_tests/_executor/local_test.py -vv -s
 pytest tests/electron_return_value_test.py::test_arithmetic_1_rev -vv -s
 ```
 
-Contributor License Agreement
-=============================
+# Contributor License Agreement
 
 All contributors to Covalent must agree to the terms in the [Contributor License Agreement](https://gist.github.com/wjcunningham7/3f21c684fc60c7598e0fe711caeb9ac1). Individual contributors should sign on their own behalf, while corporate contributors should sign on behalf of their employer. If you have any questions, direct them to the [support team](mailto:support@agnostiq.ai).
