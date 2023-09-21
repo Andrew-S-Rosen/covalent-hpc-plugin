@@ -192,4 +192,4 @@ If you use this plugin, be sure to cite Covalent as follows:
 
 ## License
 
-Covalent is licensed under the GNU Affero GPL 3.0 License. Covalent may be distributed under other licenses upon request. See the [LICENSE](https://github.com/AgnostiqHQ/covalent-executor-template/blob/main/LICENSE) file or contact the [support team](mailto:support@agnostiq.ai) for more details.
+Covalent is licensed under the Apache 2.0 License. Covalent may be distributed under other licenses upon request. See the [LICENSE](https://github.com/Quantum-Accelerators/covalent-hpc-plugin/blob/develop/LICENSE) file or contact the [support team](mailto:support@agnostiq.ai) for more details.
