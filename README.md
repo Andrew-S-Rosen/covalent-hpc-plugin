@@ -177,6 +177,10 @@ dispatch_id = ct.dispatch(workflow)(1, 2)
 result = ct.get_result(dispatch_id)
 ```
 
+## Troubleshooting
+
+The most common cause of issues is related to the job scheduler details (i.e. the `resource_spec_kwargs` and the `job_attributes_kwargs`). If your job fails on the remote machine, check the `~/.psij` directory for a history and various log files associated with your attempted job submissions.
+
 ## Release Notes
 
 Release notes are available in the [Changelog](CHANGELOG.md).
