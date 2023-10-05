@@ -376,11 +376,12 @@ class HPCExecutor(AsyncBaseExecutor):
         """
 
         return f"""
+import os
 from pathlib import Path
 
 import cloudpickle as pickle
 
-with open(Path("{self._remote_func_filepath}").expanduser().resolve(), "rb") as f:
+with open(Path(os.path.expandvars("{self._remote_func_filepath}")).expanduser().resolve(), "rb") as f:
     function, args, kwargs = pickle.load(f)
 
 result = None
@@ -391,7 +392,7 @@ try:
 except Exception as e:
     exception = e
 
-with open(Path("{self._remote_result_filepath}").expanduser().resolve(), "wb") as f:
+with open(Path(os.path.expandvars("{self._remote_result_filepath}")).expanduser().resolve(), "wb") as f:
     pickle.dump((result, exception), f)
 """
 
@@ -425,7 +426,7 @@ with open(Path("{self._remote_result_filepath}").expanduser().resolve(), "wb") a
             else ""
         )
         post_launch_string = (
-            f"post_launch=Path('{self._remote_post_launch_filepath}').expanduser().resolve(),"
+            f"post_launch=Path(os.path.expandvars('{self._remote_post_launch_filepath}')).expanduser().resolve(),"
             if self.post_launch_cmds
             else ""
         )
@@ -443,11 +444,11 @@ job = Job(
         executable="{self.remote_python_exe}",
         environment={self.environment},
         launcher="{self.launcher}",
-        arguments=[str(Path("{self._remote_pickle_script_filepath}").expanduser().resolve())],
-        directory=Path("{self._job_remote_workdir}").expanduser().resolve(),
-        stdout_path=Path("{self._remote_stdout_filepath}").expanduser().resolve(),
-        stderr_path=Path("{self._remote_stderr_filepath}").expanduser().resolve(),
-        pre_launch=Path('{self._remote_pre_launch_filepath}').expanduser().resolve(),
+        arguments=[str(Path(os.path.expandvars("{self._remote_pickle_script_filepath}")).expanduser().resolve())],
+        directory=Path(os.path.expandvars("{self._job_remote_workdir}")).expanduser().resolve(),
+        stdout_path=Path(os.path.expandvars("{self._remote_stdout_filepath}")).expanduser().resolve(),
+        stderr_path=Path(os.path.expandvars("{self._remote_stderr_filepath}")).expanduser().resolve(),
+        pre_launch=Path(os.path.expandvars("{self._remote_pre_launch_filepath}")).expanduser().resolve(),
         {post_launch_string}
         {resources_string}
         {attributes_string}
