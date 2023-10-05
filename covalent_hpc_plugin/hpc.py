@@ -381,7 +381,7 @@ from pathlib import Path
 
 import cloudpickle as pickle
 
-with open(Path(os.path.expandvars("{self._remote_func_filepath}")).expanduser().resolve(), "rb") as f:
+with open(Path(os.path.expandvars("{self._remote_func_filepath}")), "rb") as f:
     function, args, kwargs = pickle.load(f)
 
 result = None
@@ -392,7 +392,7 @@ try:
 except Exception as e:
     exception = e
 
-with open(Path(os.path.expandvars("{self._remote_result_filepath}")).expanduser().resolve(), "wb") as f:
+with open(Path(os.path.expandvars("{self._remote_result_filepath}")), "wb") as f:
     pickle.dump((result, exception), f)
 """
 
@@ -426,14 +426,10 @@ with open(Path(os.path.expandvars("{self._remote_result_filepath}")).expanduser(
             else ""
         )
         post_launch_string = (
-            f"post_launch=Path(os.path.expandvars('{self._remote_post_launch_filepath}')).expanduser().resolve(),"
+            f"post_launch=Path(os.path.expandvars('{self._remote_post_launch_filepath}')),"
             if self.post_launch_cmds
             else ""
         )
-
-        # NOTE: We awkwardly have to do the Path resolution in the remote Python scripts themselves because
-        # if we try to resolve them beforehand, we'll be doing so based on environment variables and paths of
-        # the *local* machine rather than the compute nodes on remote machine.
 
         return f"""
 import datetime
@@ -450,10 +446,10 @@ job = Job(
         environment={self.environment},
         launcher="{self.launcher}",
         arguments=[str(Path(os.path.expandvars("{self._remote_pickle_script_filepath}")).expanduser().resolve())],
-        directory=Path(os.path.expandvars("{self._job_remote_workdir}")).expanduser().resolve(),
-        stdout_path=Path(os.path.expandvars("{self._remote_stdout_filepath}")).expanduser().resolve(),
-        stderr_path=Path(os.path.expandvars("{self._remote_stderr_filepath}")).expanduser().resolve(),
-        pre_launch=Path(os.path.expandvars("{self._remote_pre_launch_filepath}")).expanduser().resolve(),
+        directory=Path(os.path.expandvars("{self._job_remote_workdir}")),
+        stdout_path=Path(os.path.expandvars("{self._remote_stdout_filepath}")),
+        stderr_path=Path(os.path.expandvars("{self._remote_stderr_filepath}")),
+        pre_launch=Path(os.path.expandvars("{self._remote_pre_launch_filepath}")),
         {post_launch_string}
         {resources_string}
         {attributes_string}
