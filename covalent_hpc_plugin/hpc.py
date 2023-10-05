@@ -432,6 +432,7 @@ with open(Path(os.path.expandvars("{self._remote_result_filepath}")).expanduser(
 
         return f"""
 import datetime
+import os
 from pathlib import Path
 from psij import Job, JobAttributes, JobExecutor, JobSpec, ResourceSpecV1
 
@@ -622,11 +623,11 @@ conda activate {self.remote_conda_env}
 
         results_dir = task_metadata["results_dir"]
         self._task_results_dir = Path(results_dir) / dispatch_id
-        self._job_remote_workdir = (
-            Path(self.remote_workdir) / dispatch_id / f"node_{node_id}"
+        self._job_remote_workdir = Path(
+            self.remote_workdir / dispatch_id / f"node_{node_id}"
             if self.create_unique_workdir
-            else Path(self.remote_workdir)
-        )
+            else self.remote_workdir
+        ).expanduser().resolve()
 
         result_filename = f"result-{dispatch_id}-{node_id}.pkl"
         job_script_filename = f"psij-{dispatch_id}-{node_id}.py"
