@@ -431,6 +431,10 @@ with open(Path(os.path.expandvars("{self._remote_result_filepath}")).expanduser(
             else ""
         )
 
+        # NOTE: We awkwardly have to do the Path resolution in the remote Python scripts themselves because
+        # if we try to resolve them beforehand, we'll be doing so based on environment variables and paths of
+        # the *local* machine rather than the compute nodes on remote machine.
+
         return f"""
 import datetime
 import os
