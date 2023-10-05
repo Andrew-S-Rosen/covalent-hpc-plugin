@@ -380,7 +380,7 @@ from pathlib import Path
 
 import cloudpickle as pickle
 
-with open(Path("{self._remote_func_filepath}").expanduser().resolve(), "rb") as f:
+with open(Path("{self._remote_func_filepath}"), "rb") as f:
     function, args, kwargs = pickle.load(f)
 
 result = None
@@ -391,7 +391,7 @@ try:
 except Exception as e:
     exception = e
 
-with open(Path("{self._remote_result_filepath}").expanduser().resolve(), "wb") as f:
+with open(Path("{self._remote_result_filepath}"), "wb") as f:
     pickle.dump((result, exception), f)
 """
 
@@ -425,13 +425,14 @@ with open(Path("{self._remote_result_filepath}").expanduser().resolve(), "wb") a
             else ""
         )
         post_launch_string = (
-            f"post_launch=Path('{self._remote_post_launch_filepath}').expanduser().resolve(),"
+            f"post_launch=Path('{self._remote_post_launch_filepath}'),"
             if self.post_launch_cmds
             else ""
         )
 
         return f"""
 import datetime
+import os
 from pathlib import Path
 from psij import Job, JobAttributes, JobExecutor, JobSpec, ResourceSpecV1
 
@@ -443,11 +444,11 @@ job = Job(
         executable="{self.remote_python_exe}",
         environment={self.environment},
         launcher="{self.launcher}",
-        arguments=[str(Path("{self._remote_pickle_script_filepath}").expanduser().resolve())],
-        directory=Path("{self._job_remote_workdir}").expanduser().resolve(),
-        stdout_path=Path("{self._remote_stdout_filepath}").expanduser().resolve(),
-        stderr_path=Path("{self._remote_stderr_filepath}").expanduser().resolve(),
-        pre_launch=Path('{self._remote_pre_launch_filepath}').expanduser().resolve(),
+        arguments=[str(Path("{self._remote_pickle_script_filepath}"))],
+        directory=Path("{self._job_remote_workdir}"),
+        stdout_path=Path("{self._remote_stdout_filepath}"),
+        stderr_path=Path("{self._remote_stderr_filepath}"),
+        pre_launch=Path('{self._remote_pre_launch_filepath}'),
         {post_launch_string}
         {resources_string}
         {attributes_string}
@@ -619,13 +620,14 @@ conda activate {self.remote_conda_env}
         dispatch_id = task_metadata["dispatch_id"]
         node_id = task_metadata["node_id"]
         self._name = f"{dispatch_id}-{node_id}"
+        self.remote_workdir = Path(os.path.expandvars(self.remote_workdir)).expanduser().resolve()
 
         results_dir = task_metadata["results_dir"]
         self._task_results_dir = Path(results_dir) / dispatch_id
         self._job_remote_workdir = (
-            Path(self.remote_workdir) / dispatch_id / f"node_{node_id}"
+            self.remote_workdir / dispatch_id / f"node_{node_id}"
             if self.create_unique_workdir
-            else Path(self.remote_workdir)
+            else self.remote_workdir
         )
 
         result_filename = f"result-{dispatch_id}-{node_id}.pkl"
