@@ -433,6 +433,7 @@ with open(Path(os.path.expandvars("{self._remote_result_filepath}")).expanduser(
 
         return f"""
 import datetime
+import os
 from pathlib import Path
 from psij import Job, JobAttributes, JobExecutor, JobSpec, ResourceSpecV1
 
