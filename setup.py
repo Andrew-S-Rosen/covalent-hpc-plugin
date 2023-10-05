@@ -27,7 +27,7 @@ plugins_list = ["hpc = covalent_hpc_plugin.hpc"]
 setup_info = {
     "name": "covalent-hpc-plugin",
     "packages": find_packages("."),
-    "version": "0.0.6",
+    "version": "0.0.7",
     "maintainer": "Andrew S. Rosen",
     "url": "https://github.com/quantum-accelerators/covalent-hpc-plugin",
     "license": "GNU Affero GPL v3.0",
