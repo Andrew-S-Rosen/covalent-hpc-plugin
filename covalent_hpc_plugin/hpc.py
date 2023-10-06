@@ -43,7 +43,7 @@ _EXECUTOR_PLUGIN_DEFAULTS = {
     # SSH credentials
     "address": "",
     "username": "",
-    "password": "",
+    "password": None,
     "ssh_key_file": "~/.ssh/id_rsa",
     "cert_file": None,
     # PSI/J parameters
