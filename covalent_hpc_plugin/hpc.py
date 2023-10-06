@@ -43,6 +43,7 @@ _EXECUTOR_PLUGIN_DEFAULTS = {
     # SSH credentials
     "address": "",
     "username": "",
+    "password": None,
     "ssh_key_file": "~/.ssh/id_rsa",
     "cert_file": None,
     # PSI/J parameters
@@ -118,7 +119,9 @@ class HPCExecutor(AsyncBaseExecutor):
     Args:
         address: Remote address or hostname of the login node (e.g. "coolmachine.university.edu").
         username: Username used to authenticate over SSH (i.e. what you use to login to `address`).
-            The default is None (i.e. no username is required).
+            The default is "" (i.e. no username is required).
+        password: The password to authenticate over SSH (not needed if an SSH key is used).
+            The default is None (i.e. no password needs to be supplied).
         ssh_key_file: Private RSA key used to authenticate over SSH.
             The default is "~/.ssh/id_rsa". If no key is required, set this as None.
         cert_file: Certificate file used to authenticate over SSH, if required (usually has extension .pub).
@@ -159,7 +162,8 @@ class HPCExecutor(AsyncBaseExecutor):
         self,
         # SSH credentials
         address: str = _DEFAULT,
-        username: str | None = _DEFAULT,
+        username: str = _DEFAULT,
+        password: str | None = _DEFAULT,
         ssh_key_file: str | Path | None = _DEFAULT,
         cert_file: str | Path | None = _DEFAULT,
         # PSI/J parameters
@@ -210,6 +214,14 @@ class HPCExecutor(AsyncBaseExecutor):
             else hpc_config["username"]
             if "username" in hpc_config
             else _EXECUTOR_PLUGIN_DEFAULTS["username"]
+        )
+
+        self.password = (
+            password
+            if password != _DEFAULT
+            else hpc_config["password"]
+            if "password" in hpc_config
+            else _EXECUTOR_PLUGIN_DEFAULTS["password"]
         )
 
         self.ssh_key_file = (
@@ -594,6 +606,7 @@ conda activate {self.remote_conda_env}
             conn = await asyncssh.connect(
                 self.address,
                 username=self.username,
+                password=self.password,
                 client_keys=client_keys,
                 known_hosts=None,
             )
