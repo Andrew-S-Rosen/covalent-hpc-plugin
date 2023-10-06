@@ -104,6 +104,7 @@ def test_init_defaults(tmpdir):
     executor = HPCExecutor(address=address)
     assert executor.address == address
     assert executor.username == ""
+    assert executor.password is None
     assert executor.ssh_key_file == "~/.ssh/id_rsa"
     assert executor.cert_file is None
     assert executor.instance == "slurm"
@@ -139,6 +140,7 @@ def test_init_nondefaults(tmpdir):
     executor = HPCExecutor(
         address=address,
         username=username,
+        password="test"
         ssh_key_file="ssh_key_file",
         cert_file="cert_file",
         instance="flux",
@@ -157,6 +159,7 @@ def test_init_nondefaults(tmpdir):
     )
     assert executor.username == username
     assert executor.address == address
+    assert executor.password == "test"
     assert executor.ssh_key_file == "ssh_key_file"
     assert executor.cert_file == "cert_file"
     assert executor.instance == "flux"

@@ -119,7 +119,7 @@ class HPCExecutor(AsyncBaseExecutor):
     Args:
         address: Remote address or hostname of the login node (e.g. "coolmachine.university.edu").
         username: Username used to authenticate over SSH (i.e. what you use to login to `address`).
-            The default is None (i.e. no username is required).
+            The default is "" (i.e. no username is required).
         password: The password to authenticate over SSH (not needed if an SSH key is used).
             The default is None (i.e. no password needs to be supplied).
         ssh_key_file: Private RSA key used to authenticate over SSH.
@@ -162,7 +162,7 @@ class HPCExecutor(AsyncBaseExecutor):
         self,
         # SSH credentials
         address: str = _DEFAULT,
-        username: str | None = _DEFAULT,
+        username: str = _DEFAULT,
         password: str | None = _DEFAULT,
         ssh_key_file: str | Path | None = _DEFAULT,
         cert_file: str | Path | None = _DEFAULT,
