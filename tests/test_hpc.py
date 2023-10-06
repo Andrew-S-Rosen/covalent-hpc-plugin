@@ -140,7 +140,7 @@ def test_init_nondefaults(tmpdir):
     executor = HPCExecutor(
         address=address,
         username=username,
-        password="test"
+        password="test",
         ssh_key_file="ssh_key_file",
         cert_file="cert_file",
         instance="flux",
