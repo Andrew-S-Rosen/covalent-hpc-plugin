@@ -1,0 +1,31 @@
+name: Bug report
+description: Report a bug.
+labels: ["bug"]
+
+body:
+  - type: textarea
+    attributes:
+      label: Details about the Python environment
+      value: |
+        - **`covalent` version**:
+        - **`covalent-hpc-plugin` version**:
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: What is the issue?
+      description: A short description of what is going wrong.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: How can we easily reproduce the issue?
+      description: Provide a [minimal reproducible example](https://stackoverflow.com/help/minimal-reproducible-example) of code to reproduce the issue.
+      value: |
+        ```python
+        # Paste your *minimal* example code here
+        ```
+    validations:
+      required: true
