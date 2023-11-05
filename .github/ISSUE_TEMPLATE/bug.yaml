@@ -29,3 +29,10 @@ body:
         ```
     validations:
       required: true
+
+  - type: textarea
+    attributes:
+      label: If possible, please also upload any relevant files that might help with debugging.
+      description: For instance, any of the `result-***.pkl`, `psij-***.py`, `script-***.py`, `query-status-***.py`, etc. files left behind when `cleanup=False`.
+    validations:
+      required: false
