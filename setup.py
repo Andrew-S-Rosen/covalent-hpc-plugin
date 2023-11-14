@@ -41,7 +41,7 @@ setup_info = {
         "aiofiles>=0.8.0",
         "cloudpickle>=2.0.0",
         "covalent>=0.226.0rc0",
-        "psij-python>=0.9.0",
+        "psij-python>=0.9.3",
     ],
     "classifiers": [
         "Development Status :: 4 - Beta",
