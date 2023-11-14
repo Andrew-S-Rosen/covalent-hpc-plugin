@@ -187,7 +187,7 @@ Release notes are available in the [Changelog](CHANGELOG.md).
 
 ## Credit
 
-This plugin was developed by [Andrew S. Rosen](https://github.com/arosen93), building off of prior work by the Agnostiq team on the [covalent-slurm-plugin](https://github.com/AgnostiqHQ/covalent-slurm-plugin).
+This plugin was developed by [Andrew S. Rosen](https://github.com/Andrew-S-Rosen), building off of prior work by the Agnostiq team on the [covalent-slurm-plugin](https://github.com/AgnostiqHQ/covalent-slurm-plugin).
 
 If you use this plugin, be sure to cite Covalent as follows:
 
