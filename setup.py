@@ -44,7 +44,7 @@ setup_info = {
         "psij-python>=0.9.3",
     ],
     "classifiers": [
-        "Development Status :: 4 - Beta",
+        "Development Status :: 5 - Production/Stable",
         "Environment :: Console",
         "Environment :: Plugins",
         "Intended Audience :: Developers",
