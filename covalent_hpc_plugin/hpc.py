@@ -796,7 +796,7 @@ conda activate {self.remote_conda_env}
         print(stderr, file=sys.stderr)
 
         if exception:
-            raise RuntimeError(f"Fetching job result failed: {stderr}")
+            raise RuntimeError(f"Fetching job result failed: {stderr}. Exception: {exception}")
 
         app_log.debug("Preparing for teardown")
 
