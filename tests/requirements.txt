@@ -4,7 +4,7 @@ black==23.11.0
 cloudpickle==3.0.0
 covalent==0.228.0rc0
 flake8==6.1.0
-isort==5.12.0
+isort==5.13.1
 pre-commit==3.5.0
 psij-python==0.9.3
 pytest==7.4.3
