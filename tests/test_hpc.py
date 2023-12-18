@@ -32,7 +32,6 @@ import pytest
 from covalent._results_manager.result import Result
 from covalent._shared_files.config import get_config, set_config
 from covalent._workflow.transport import TransportableObject
-from covalent.executor.base import wrapper_fn
 
 from covalent_hpc_plugin import HPCExecutor
 
@@ -786,7 +785,7 @@ async def test_run(tmpdir, monkeypatch, proc_mock, conn_mock):
     def f(x, y):
         return x + y
 
-    dummy_function = partial(wrapper_fn, TransportableObject(f), call_before=[], call_after=[])
+    dummy_function = partial(wrapper_fn.__wrapped__, TransportableObject(f), call_before=[], call_after=[])
 
     dummy_metadata = {
         "dispatch_id": "259efebf-2c69-4981-a19e-ec90cdffd026",
