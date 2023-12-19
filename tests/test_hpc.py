@@ -32,7 +32,7 @@ import pytest
 from covalent._results_manager.result import Result
 from covalent._shared_files.config import get_config, set_config
 from covalent._workflow.transport import TransportableObject
-from covalent.executor.base import wrapper_fn
+from covalent.executor.utils.wrappers import wrapper_fn
 
 from covalent_hpc_plugin import HPCExecutor
 
