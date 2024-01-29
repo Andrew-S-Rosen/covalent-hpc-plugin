@@ -1,6 +1,6 @@
 aiofiles==23.2.1
 asyncssh==2.14.2
-black==23.12.1
+black==24.1.1
 cloudpickle==3.0.0
 covalent==0.233.1rc0
 flake8==7.0.0
