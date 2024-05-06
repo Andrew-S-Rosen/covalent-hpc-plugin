@@ -59,7 +59,7 @@ _EXECUTOR_PLUGIN_DEFAULTS = {
     "job_attributes_kwargs": {
         "duration": 10,  # minutes
         "queue_name": None,
-        "project_name": None,
+        "account": None,
         "custom_attributes": None,
     },
     # Pre/Post-launch commands
@@ -105,7 +105,7 @@ class JobAttributesHint(TypedDict):
 
     duration: datetime.timedelta | int | float # in minutes when type int | float
     queue_name: str | None
-    project_name: str | None
+    account: str | None
     reservation_id: str | None
     custom_attributes: dict[str, object] | None
 
