@@ -159,7 +159,7 @@ executor = ct.executor.HPCExecutor(
     cert_file="~/.ssh/nersc-cert.pub",
     remote_conda_env="myenv",
     job_attributes_kwargs={
-        "project_name": "ProjectName",
+        "account": "account",
         "custom_attributes": {"slurm.constraint": "cpu", "slurm.qos": "debug"},
     },
 )
