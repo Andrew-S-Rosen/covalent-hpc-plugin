@@ -126,7 +126,7 @@ executor = ct.executor.HPCExecutor(
     job_attributes_kwargs={
         "duration": 30, # minutes
         "queue_name": "debug",
-        "project_name": "AccountName",
+        "account": "AccountName",
     },
     launcher="single",
     remote_workdir="~/covalent-workdir",
