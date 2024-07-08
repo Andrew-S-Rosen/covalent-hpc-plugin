@@ -1,5 +1,5 @@
 aiofiles==24.1.0
-asyncssh==2.14.2
+asyncssh==2.15.0
 black==24.4.2
 cloudpickle==3.0.0
 covalent==0.235.1rc0
